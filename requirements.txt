@@ -1,0 +1,10 @@
+anthropic
+faster-whisper
+sounddevice
+edge-tts
+pygame
+pywebview
+numpy
+# Volitelné - Whisper na grafice NVIDIA:
+nvidia-cublas-cu12
+nvidia-cudnn-cu12==9.*

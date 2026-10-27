@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Barvy - zkus je změnit! */
+  :root { --cyan: #38e1ff; --amber: #ffb238; }
+
+  body {
+    margin: 0; height: 100vh; overflow: hidden; user-select: none;
+    background: radial-gradient(circle at 50% 35%, #0b1a26, #05080d 70%);
+    color: #cfefff; font-family: Consolas, monospace;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+
+  /* Reaktor = tři točící se kruhy a svítící střed */
+  .reaktor { position: relative; width: 260px; height: 260px; --barva: var(--cyan); transition: opacity .4s; }
+  .kruh { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; }
+  .k1 { border-top-color: var(--barva); border-bottom-color: var(--barva); animation: tocit 6s linear infinite; }
+  .k2 { inset: 22px; border: 3px dashed var(--barva); opacity: .5; animation: tocit 14s linear infinite reverse; }
+  .k3 { inset: 48px; border-left-color: var(--barva); border-right-color: var(--barva); animation: tocit 3s linear infinite; }
+  .stred { position: absolute; inset: 80px; border-radius: 50%; opacity: .35;
+           background: radial-gradient(circle, var(--barva) 0%, transparent 70%); }
+  .nazev { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+           letter-spacing: 6px; font-weight: bold; color: var(--barva); text-shadow: 0 0 12px var(--barva); }
+
+  @keyframes tocit { to { transform: rotate(360deg); } }
+  @keyframes pulz  { 50% { transform: scale(1.25); opacity: .8; } }
+
+  /* Jak reaktor vypadá v jednotlivých stavech (třída na <body>) */
+  body.nacitam .reaktor   { opacity: .3; }
+  body.ceka .reaktor      { opacity: .55; }
+  body.posloucham .stred  { animation: pulz 1.2s ease-in-out infinite; }
+  body.premyslim .reaktor { --barva: var(--amber); }
+  body.premyslim .k1, body.premyslim .k3 { animation-duration: .8s; }
+  body.mluvim .stred      { animation: pulz .5s ease-in-out infinite; opacity: .7; }
+
+  .stav { margin-top: 28px; letter-spacing: 4px; font-size: 14px; color: var(--cyan); }
+  body.premyslim .stav { color: var(--amber); }
+
+  .titulky { margin-top: 24px; width: min(720px, 90vw); min-height: 140px; }
+  .ty { color: #7fa7bd; font-size: 14px; margin-bottom: 8px; min-height: 18px; }
+  .odpoved { background: rgba(10, 30, 45, .7); border: 1px solid rgba(56, 225, 255, .25); border-radius: 8px;
+             padding: 14px 18px; font-size: 16px; line-height: 1.5; min-height: 24px; white-space: pre-wrap; }
+
+  .lista { position: fixed; bottom: 16px; display: flex; gap: 8px; width: min(720px, 90vw); }
+  input  { flex: 1; background: #0a1620; border: 1px solid #1e3a4a; color: #cfefff;
+           padding: 10px; border-radius: 6px; font-family: inherit; }
+  button { background: #0a1620; border: 1px solid #1e3a4a; color: var(--cyan);
+           padding: 10px 14px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  button.vypnuto { color: #ff6b6b; border-color: #ff6b6b; }
+  .cena { position: fixed; top: 12px; right: 16px; font-size: 12px; color: #55798c; }
+</style>
+</head>
+<body class="nacitam">
+  <div class="cena" id="cena"></div>
+
+  <div class="reaktor">
+    <div class="kruh k1"></div><div class="kruh k2"></div><div class="kruh k3"></div>
+    <div class="stred"></div>
+    <div class="nazev">J.A.R.V.I.S.</div>
+  </div>
+
+  <div class="stav" id="stav">NAČÍTÁM SYSTÉMY...</div>
+
+  <div class="titulky">
+    <div class="ty" id="ty"></div>
+    <div class="odpoved" id="odpoved"></div>
+  </div>
+
+  <div class="lista">
+    <button id="mic" onclick="prepniMikrofon()">🎤 Mikrofon zapnutý</button>
+    <input id="vstup" placeholder="Nebo napiš zprávu a dej Enter...">
+    <button onclick="window.pywebview.api.reset()">Reset</button>
+  </div>
+
+<script>
+  // Tyhle funkce volá Python, když se má v okně něco změnit
+  function nastavStav(stav, text) { document.body.className = stav; document.getElementById('stav').textContent = text; }
+  function ukazTy(text)           { document.getElementById('ty').textContent = text ? 'Ty: ' + text : ''; }
+  function zacniOdpoved()         { document.getElementById('odpoved').textContent = ''; }
+  function pridejOdpoved(kousek)  { document.getElementById('odpoved').textContent += kousek; }
+  function ukazCenu(text)         { document.getElementById('cena').textContent = text; }
+
+  // Tlačítka a psaní posílají věci do Pythonu přes window.pywebview.api
+  async function prepniMikrofon() {
+    const zapnuto = await window.pywebview.api.prepni_mikrofon();
+    const tlacitko = document.getElementById('mic');
+    tlacitko.textContent = zapnuto ? '🎤 Mikrofon zapnutý' : '🔇 Mikrofon vypnutý';
+    tlacitko.classList.toggle('vypnuto', !zapnuto);
+  }
+
+  document.getElementById('vstup').addEventListener('keydown', e => {
+    const text = e.target.value.trim();
+    if (e.key === 'Enter' && text) {
+      window.pywebview.api.posli_text(text);
+      e.target.value = '';
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Soubory, které se NEnahrají na GitHub
+
+# Python si sem ukládá zkompilované soubory
+__pycache__/
+*.pyc
+
+# Výpisy aplikace (můžou obsahovat tvoje konverzace)
+jarvis_log.txt
+
+# Ukázky hlasů a nahrávky
+*.mp3
+*.wav
+
+# Tajné věci - klíče a hesla nikdy nepatří na GitHub
+.env
+*.key
