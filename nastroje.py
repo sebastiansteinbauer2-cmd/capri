@@ -1,12 +1,12 @@
-# nastroje.py - věci, které JARVIS umí udělat ve skutečném světě
+# nastroje.py - věci, které Capri umí udělat ve skutečném světě
 #
 # Claude sám umí jen psát text. Nástroj je funkce v Pythonu, o které
 # Claudovi řekneme (jméno + popis). Když ji Claude potřebuje, napíše
 # "zavolej zjisti_pocasi(mesto='Brno')" - a my ji spustíme a vrátíme výsledek.
 #
-# Bezpečnost: nástroje tu jen čtou, nebo připisují do JARVISových vlastních
+# Bezpečnost: nástroje tu jen čtou, nebo připisují do Capriných vlastních
 # souborů (paměť, deník, knihovna). Nic nemažou, neposílají ani neplatí.
-# Dokumenty smí JARVIS jen ČÍST a jen ve složce "dokumenty".
+# Dokumenty smí Capri jen ČÍST a jen ve složce "dokumenty".
 
 import base64
 import datetime
@@ -23,14 +23,14 @@ from pathlib import Path
 
 DOMOVSKE_MESTO = "Praha"  # kde bydlíš - přepiš si na své město
 
-# Soubory JARVISe - obyčejné texty, můžeš je otevřít a upravit
+# Soubory Capri - obyčejné texty, můžeš je otevřít a upravit
 SLOZKA = Path(__file__).parent
 PAMET = SLOZKA / "pamet.txt"
 ZAPOMENUTO = SLOZKA / "pamet_zapomenuto.txt"  # nic se nemaže, jen se přesune sem
 DENIK = SLOZKA / "denik.txt"                  # denní a týdenní shrnutí
 KNIHOVNA = SLOZKA / "knihovna.txt"            # knihy, videa, články... a co ses naučil
 
-# JEDINÁ složka, do které JARVIS smí nahlížet. Dej sem rozvrh, zápisky, PDF ze školy...
+# JEDINÁ složka, do které Capri smí nahlížet. Dej sem rozvrh, zápisky, PDF ze školy...
 DOKUMENTY = SLOZKA / "dokumenty"
 CITELNE = {".txt", ".md", ".csv", ".json", ".pdf", ".docx"}  # co umí přečíst
 MAX_ZNAKU = 30000  # delší dokumenty zkrátí (jinak by to bylo pomalé a drahé)
@@ -109,7 +109,7 @@ def zjisti_pocasi(mesto):
 
 
 def nacti_pamet():
-    """Vrátí všechno, co si JARVIS pamatuje (nebo prázdný text)."""
+    """Vrátí všechno, co si Capri pamatuje (nebo prázdný text)."""
     if PAMET.exists():
         return PAMET.read_text(encoding="utf-8").strip()
     return ""
@@ -385,7 +385,7 @@ NASTROJE = [
     {
         "name": "seznam_dokumentu",
         "description": "Vypíše soubory ve složce dokumenty (rozvrh, zápisky, PDF ze školy...). "
-                       "Jiné složky JARVIS vidět nesmí.",
+                       "Jiné složky Capri vidět nesmí.",
         "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Malá Capri, která chodí po ploše. Okno je průhledné - videt je jen ona a bublina. */
+  :root { --cyan: #3fe8ff; --ruzova: #ff2e88; --zluta: #ffe14d; --zelena: #39ff9c; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none;
+               font-family: "Segoe UI", Consolas, sans-serif; }
+  body { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+
+  /* Bublina s odpovědí nebo menu */
+  .bublina { display: none; width: 240px; margin-bottom: 4px; background: rgba(12, 16, 36, .96);
+             border: 1px solid var(--cyan); border-left: 3px solid var(--ruzova); color: #e6f6ff;
+             padding: 8px 10px; font-size: 12px; line-height: 1.35; }
+  .bublina.videt { display: block; }
+  .bublina .nadpis { font-family: Consolas, monospace; font-size: 9px; letter-spacing: 2px;
+                     color: var(--zluta); margin-bottom: 4px; }
+  .bublina .text { max-height: 90px; overflow: hidden; }
+  .bublina button { display: block; width: 100%; margin-top: 5px; text-align: left; cursor: pointer;
+                    background: #1b1240; color: #d9ccff; border: 1px solid #3b2c7a; padding: 5px 8px;
+                    font-family: Consolas, monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+  .bublina button:hover { background: #2c1d66; color: #fff; }
+
+  /* Postavička */
+  .postava { width: 120px; cursor: pointer; transition: transform .2s; }
+  .postava.vlevo { transform: scaleX(-1); }
+  .capri { width: 100%; height: auto; filter: drop-shadow(0 0 10px rgba(255,46,136,.5)); }
+
+  /* Stejné animace jako v hlavním okně */
+  .telo { animation: vznaset 4s ease-in-out infinite; transform-origin: 50% 60%; }
+  .oko { animation: mrkat 5s infinite; transform-box: fill-box; transform-origin: center; }
+  .pusa { transform-box: fill-box; transform-origin: center; transform: scaleY(.3); }
+  .strepy { transform-origin: 160px 150px; animation: tocit 18s linear infinite; }
+  .usi { transition: transform .3s; }
+  body.jde .telo { animation: krok .45s ease-in-out infinite; }
+  @keyframes vznaset { 50% { transform: translateY(-8px); } }
+  @keyframes krok { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(2deg); } }
+  @keyframes mrkat { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+  @keyframes tocit { to { transform: rotate(360deg); } }
+  @keyframes mluvit { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1.2); } }
+  body.posloucham .oko-svetlo { fill: var(--zelena); }
+  body.posloucham .usi { transform: translateY(-4px); }
+  body.premyslim .strepy { animation-duration: 2.5s; }
+  body.premyslim .oko-svetlo { fill: var(--zluta); }
+  body.mluvim .pusa { animation: mluvit .28s ease-in-out infinite; }
+</style>
+</head>
+<body>
+  <div class="bublina" id="bublina">
+    <div class="nadpis" id="nadpis">CAPRI</div>
+    <div class="text" id="text"></div>
+    <div id="menu"></div>
+  </div>
+  <div class="postava" id="postava" onclick="ukazMenu()">
+    <!--POSTAVA-->
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let stav = '', chodi = true, skryt = null;
+
+  function ukazBublinu(nadpis, text, tlacitka, naSekund) {
+    clearTimeout(skryt);
+    $('nadpis').textContent = nadpis;
+    $('text').textContent = text;
+    $('menu').innerHTML = '';
+    for (const [popis, akce] of tlacitka || []) {
+      const b = document.createElement('button');
+      b.textContent = popis;
+      b.onclick = akce;
+      $('menu').appendChild(b);
+    }
+    $('bublina').classList.add('videt');
+    if (naSekund) skryt = setTimeout(schovejBublinu, naSekund * 1000);
+  }
+  function schovejBublinu() { $('bublina').classList.remove('videt'); }
+
+  // Klik na Capri = menu (jako ve videu)
+  const api = () => window.pywebview.api;
+  function ukazMenu() {
+    ukazBublinu('CAPRI // SYNC', 'What should I do? Pick one.', [
+      ['Listen to me', () => { api().poslouchej(); ukazBublinu('CAPRI', "I'm all ears. Go!", [], 4); }],
+      ['Open my window', () => { api().ukaz_okno(); schovejBublinu(); }],
+      ['Open documents folder', () => { api().otevri_dokumenty(); schovejBublinu(); }],
+      [chodi ? 'Stay here' : 'Walk around', () => { api().prepni_chuzi(); schovejBublinu(); }],
+      ['Nothing, thanks', schovejBublinu],
+    ]);
+  }
+
+  // Tyhle funkce volá Python (stejná jména jako v hlavním okně)
+  function nastavStav(novy, text) {
+    const predtim = stav;
+    stav = novy;
+    document.body.className = novy + (chodi && novy !== 'mluvim' && novy !== 'premyslim' ? ' jde' : '');
+    if (predtim === 'mluvim' && novy !== 'mluvim') skryt = setTimeout(schovejBublinu, 6000);
+  }
+  function zacniOdpoved() { ukazBublinu('CAPRI / INCOMING', '', []); }
+  function pridejOdpoved(kousek) {
+    const t = $('text');
+    t.textContent = (t.textContent + kousek).slice(-220);  // jen konec, ať se bublina vejde
+  }
+  function ukazTy(text) {}
+  function ukazCenu(text) {}
+  function ukazHlasitost(x) {}
+  function otoc(smer) { $('postava').classList.toggle('vlevo', smer < 0); }
+  function nastavChuzi(ano) { chodi = ano; nastavStav(stav, ''); }
+</script>
+</body>
+</html>

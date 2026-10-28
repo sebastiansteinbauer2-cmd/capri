@@ -5,9 +5,10 @@ __pycache__/
 *.pyc
 
 # Výpisy aplikace (můžou obsahovat tvoje konverzace)
+capri_log.txt
 jarvis_log.txt
 
-# Osobní věci JARVISe - nikdy na veřejný GitHub!
+# Osobní věci Capri - nikdy na veřejný GitHub!
 pamet*.txt
 denik.txt
 knihovna.txt
@@ -17,6 +18,9 @@ dokumenty/
 # Ukázky hlasů a nahrávky
 *.mp3
 *.wav
+
+# Hlasové modely Piper (velké soubory, stáhnou se zvlášť - viz README)
+hlasy/
 
 # Tajné věci - klíče a hesla nikdy nepatří na GitHub
 .env

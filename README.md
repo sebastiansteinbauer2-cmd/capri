@@ -1,14 +1,14 @@
-# J.A.R.V.I.S. – osobní AI asistent
+# CAPRI – osobní AI parťačka
 
-Hlasový asistent ve stylu JARVISe z Iron Mana, který mluví česky. Stačí říct
-**„Jarvisi, …"** a odpoví hlasem.
+Hlasová AI parťačka v kyberpunkovém stylu, která mluví anglicky (rozumí i česky). Stačí říct
+**„Capri, …"** a odpoví hlasem.
 
 Projekt vzniká postupně jako výuka programování v Pythonu.
 
 ## Co umí
-- 🎤 poslouchá na slovo „Jarvisi" (rozpoznávání řeči Whisper běží na vlastním PC)
+- 🎤 poslouchá na slovo „Capri" (rozpoznávání řeči Whisper běží na vlastním PC)
 - 🧠 přemýšlí přes Claude API (model Claude Haiku 5.5)
-- 🔊 odpovídá hlasem po větách (edge-tts)
+- 🔊 odpovídá anglicky ženským hlasem po větách (edge-tts, záloha Piper)
 - ☀️ zjistí počasí (Open-Meteo, zdarma)
 - 🧠 dlouhodobá paměť v souboru `pamet.txt`
 - ☀️ ranní briefing (počasí + co tě dnes čeká)
@@ -16,18 +16,23 @@ Projekt vzniká postupně jako výuka programování v Pythonu.
 - 📚 knihovna – co jsi četl/viděl a co ses naučil
 - 📁 čte dokumenty (txt, md, csv, pdf, docx) – jen ze složky `dokumenty`
 - 📸 na požádání se podívá na obrazovku a poradí s tím, co na ní je
+- 🖥️ okno v kyberpunkovém stylu s animovanou postavičkou, titulky a počítadlem ceny
+- 🚶 malá Capri chodí po ploše - klikni na ni a otevře se menu
 
 Paměť, deník, knihovna i dokumenty zůstávají jen na tvém PC a na GitHub se nenahrávají.
-- 🖥️ okno s animovaným reaktorem, titulky a počítadlem ceny
+
 
 ## Soubory
 | Soubor | Co dělá |
 |---|---|
-| `jarvis_app.py` | aplikace s oknem – hlavní věc, tu spouštěj |
-| `ui.html` | vzhled okna |
-| `jarvis.py` | „mozek" – komunikace s Claudem, paměť, osobnost (jde spustit i samostatně jako textový chat) |
-| `jarvis_hlas.py` | „uši a pusa" – Whisper a hlas (jde spustit i samostatně) |
-| `nastroje.py` | nástroje, které JARVIS umí použít (počasí) |
+| `capri_app.py` | aplikace s oknem – hlavní věc, tu spouštěj |
+| `ui.html` | vzhled hlavního okna |
+| `mazlicek.html` | malá Capri na ploše |
+| `postava.svg` | postavička Capri (používají ji obě okna) |
+| `capri.py` | „mozek" – komunikace s Claudem, paměť, osobnost (jde spustit i samostatně jako textový chat) |
+| `capri_hlas.py` | „uši a pusa" – Whisper a hlas (jde spustit i samostatně) |
+| `nastroje.py` | nástroje, které Capri umí použít (počasí, paměť, deník, dokumenty, obrazovka) |
+| `vykon.py` | ať Windows Capri na pozadí nezpomaluje |
 
 ## Spuštění
 1. Nainstaluj [Python 3.12](https://www.python.org/downloads/)
@@ -42,19 +47,19 @@ Paměť, deník, knihovna i dokumenty zůstávají jen na tvém PC a na GitHub s
    ```
 4. V novém terminálu spusť:
    ```
-   python jarvis_app.py
+   python capri_app.py
    ```
 
 ## Bezpečnostní pravidla
 - API klíč je jen v proměnné prostředí, nikdy v kódu
 - nic nemaže, neplatí, neposílá ani nespouští bez výslovného potvrzení
-- přístup k souborům jen do jedné vybrané složky (připravuje se)
+- přístup k souborům jen do jedné složky (`dokumenty`), a jen ke čtení
 
 ## Plán
 - [x] Textový chat
 - [x] Hlas
-- [x] Probouzecí slovo „Jarvisi"
+- [x] Probouzecí slovo „Capri"
 - [ ] Kamera – „podívej se"
 - [ ] Režim učitele – kontrola matematiky
-- [ ] Soubory a stahování
+- [x] Čtení dokumentů ze složky, [ ] stahování
 - [ ] Email a škola

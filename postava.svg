@@ -1,0 +1,40 @@
+<!-- Capri - vlastní postavička z ostrých tvarů. Používá ji hlavní okno (ui.html)
+     i postavička na ploše (mazlicek.html). Změníš ji tady a změní se v obou. -->
+<svg class="capri" viewBox="0 0 320 300" xmlns="http://www.w3.org/2000/svg">
+      <g class="strepy">
+        <polygon points="40,60 62,40 58,72" fill="#ff2e88"/>
+        <polygon points="270,70 292,92 262,96" fill="#3fe8ff"/>
+        <polygon points="60,240 40,214 74,220" fill="#ffe14d"/>
+        <polygon points="262,236 290,224 280,256" fill="#ff2e88"/>
+        <polygon points="160,12 172,30 150,30" fill="#39ff9c"/>
+      </g>
+      <g class="telo">
+        <!-- uši -->
+        <g class="usi">
+          <polygon points="88,118 104,34 146,100" fill="#ff2e88"/>
+          <polygon points="232,118 216,34 174,100" fill="#ff2e88"/>
+          <polygon points="104,96 110,58 132,96" fill="#2a0b2e"/>
+          <polygon points="216,96 210,58 188,96" fill="#2a0b2e"/>
+        </g>
+        <!-- vlasy / ostny -->
+        <polygon points="70,150 40,130 86,128" fill="#c8186a"/>
+        <polygon points="250,150 280,130 234,128" fill="#c8186a"/>
+        <!-- hlava -->
+        <polygon points="160,84 236,118 222,196 160,232 98,196 84,118" fill="#101a33" stroke="#3fe8ff" stroke-width="3"/>
+        <polygon points="160,96 222,124 160,140 98,124" fill="#16294d"/>
+        <!-- oči -->
+        <g class="oko">
+          <polygon points="112,148 146,140 140,168 116,166" fill="#07101f" stroke="#3fe8ff" stroke-width="2"/>
+          <circle class="oko-svetlo" cx="130" cy="155" r="7" fill="#3fe8ff"/>
+        </g>
+        <g class="oko">
+          <polygon points="208,148 174,140 180,168 204,166" fill="#07101f" stroke="#3fe8ff" stroke-width="2"/>
+          <circle class="oko-svetlo" cx="190" cy="155" r="7" fill="#3fe8ff"/>
+        </g>
+        <!-- pusa -->
+        <rect class="pusa" x="146" y="192" width="28" height="8" fill="#ff2e88"/>
+        <!-- krk a ramena -->
+        <polygon points="140,230 180,230 172,256 148,256" fill="#39ff9c"/>
+        <polygon points="96,290 148,256 172,256 224,290" fill="#ff2e88"/>
+      </g>
+    </svg>
