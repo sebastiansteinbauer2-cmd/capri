@@ -478,6 +478,56 @@ namespace CapriDesktop
         internal static int Budget { get { return Budgets[Math.Max(0, Math.Min(2, Wordiness))]; } }
 
         internal static string MemoryPath;
+        // Her earlier chats: messages that fall out of her short memory are kept in past-chats.md,
+        // and the newest bits of it go back into her prompt, so she remembers what you talked about before.
+        internal static string PastPath;
+        internal const int PastShown = 2000;
+        private static readonly object pasting = new object();
+
+        private static void Archive(List<ChatMessage> gone)
+        {
+            string path = PastPath;
+            if (path == null || gone.Count == 0) return;
+            StringBuilder text = new StringBuilder();
+            string at = DateTime.Now.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            foreach (ChatMessage message in gone)
+            {
+                string said = Hands.Hush(message.Content ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
+                if (said.Length == 0) continue;
+                text.Append("- ").Append(at).Append(message.Role == "user" ? " They: " : " Capri: ").Append(said).Append("\n");
+            }
+            lock (pasting)
+            {
+                try { File.AppendAllText(path, text.ToString()); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        internal static string Past()
+        {
+            string path = PastPath;
+            if (path == null) return "";
+            string text;
+            lock (pasting)
+            {
+                try
+                {
+                    if (!File.Exists(path)) return "";
+                    text = File.ReadAllText(path);
+                }
+                catch (IOException) { return ""; }
+                catch (UnauthorizedAccessException) { return ""; }
+            }
+            if (text.Length > PastShown)
+            {
+                text = text.Substring(text.Length - PastShown);
+                int line = text.IndexOf('\n');
+                if (line >= 0) text = text.Substring(line + 1);
+            }
+            text = text.Trim();
+            return text.Length == 0 ? "" : "\nBits of your earlier chats with them, oldest first, from past-chats.md. Use them when they fit, and don't recite them:\n" + text;
+        }
         internal static string Greeting(int hour) { return hour >= 5 && hour < 12 ? "Good morning, choom." : hour >= 22 || hour < 5 ? "Isn't it late, choom?" : "Miss me, choom?"; }
 
         internal static string GreetingClip(int hour) { return hour >= 5 && hour < 12 ? "morning" : hour >= 22 || hour < 5 ? "late" : "miss"; }
@@ -687,7 +737,7 @@ namespace CapriDesktop
             if (model == null) throw new BrainException(Offline);
             Func<string, ToolArguments, string> act = Act;
             List<ChatMessage> messages = new List<ChatMessage>();
-            messages.Add(new ChatMessage("system", Character + Remembered() + Gap() + (act != null ? Hands.Chat : "") + Now()));
+            messages.Add(new ChatMessage("system", Character + Remembered() + Past() + Gap() + (act != null ? Hands.Chat : "") + Now()));
             List<ChatMessage> recent;
             lock (gate)
             {
@@ -1200,14 +1250,16 @@ namespace CapriDesktop
             lock (gate) if (ticket >= 0 && ticket != cancelled) throw new WebException("Reply cancelled.", WebExceptionStatus.RequestCanceled);
         }
 
-        internal void Forget() { lock (gate) { history.Clear(); Kept(); } }
+        internal void Forget() { lock (gate) { Archive(new List<ChatMessage>(history)); history.Clear(); Kept(); } }
 
         internal string ChatPath;
         private DateTime chattedAt = DateTime.Now;
 
         private void Kept()
         {
-            while (history.Count > Recall) history.RemoveAt(0);
+            List<ChatMessage> gone = new List<ChatMessage>();
+            while (history.Count > Recall) { gone.Add(history[0]); history.RemoveAt(0); }
+            Archive(gone);
             foreach (ChatMessage message in history) message.Content = Hands.Hush(message.Content);
             chattedAt = DateTime.Now;
             string path = ChatPath;
@@ -1244,7 +1296,9 @@ namespace CapriDesktop
                 history.Clear();
                 foreach (ChatMessage message in saved.Messages)
                     if (message != null && (message.Role == "user" || message.Role == "assistant") && !string.IsNullOrEmpty(message.Content)) history.Add(new ChatMessage(message.Role, message.Content));
-                while (history.Count > Recall) history.RemoveAt(0);
+                List<ChatMessage> gone = new List<ChatMessage>();
+                while (history.Count > Recall) { gone.Add(history[0]); history.RemoveAt(0); }
+                Archive(gone);
                 chattedAt = at;
             }
         }
