@@ -26,7 +26,9 @@ KURZ_KC = 23  # přibližně kolik korun je 1 dolar
 OSOBNOST = """Jsi JARVIS, osobní AI asistent ve stylu Iron Mana.
 Mluvíš vždy česky, stručně a s lehkým britským humorem.
 Uživatele oslovuješ "pane".
-Když něco nevíš, přiznáš to a nevymýšlíš si."""
+Když něco nevíš, přiznáš to a nevymýšlíš si.
+Na začátku každé zprávy uživatele je v [hranatých závorkách] aktuální datum
+a čas - používej ho, ale nečti ho nahlas, pokud se na něj uživatel neptá."""
 
 # ---------------------------------------------------------------
 # PŘIPOJENÍ KE CLAUDOVI
@@ -49,6 +51,7 @@ client = anthropic.Anthropic()
 
 historie = []
 celkova_cena = 0.0  # kolik zatím stála tahle konverzace (v Kč)
+system = ""         # osobnost + dlouhodobá paměť, sestaví se na začátku každé konverzace
 
 
 DNY = ["pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle"]
@@ -67,12 +70,22 @@ def zeptej_se_ai(text, pri_kousku=None):
 
     pri_kousku = funkce, která dostane každý kousek odpovědi (používá ji okno
     aplikace). Když chybí, odpověď se vypisuje do terminálu."""
+    global system
     puvodni_delka = len(historie)
-    historie.append({"role": "user", "content": text})
 
-    # Claude neví, kolik je hodin - řekneme mu to s každou zprávou
+    # Na začátku nové konverzace přečteme dlouhodobou paměť (pamet.txt).
+    # Během konverzace se system už nemění - nové vzpomínky Claude zná
+    # z toho, že je sám uložil.
+    if not historie:
+        pamet = nastroje.nacti_pamet() or "(zatím nic)"
+        system = OSOBNOST + "\n\nCo o uživateli víš z dřívějška (tvoje dlouhodobá paměť):\n" + pamet
+
+    # Claude neví, kolik je hodin - připíšeme mu to k tvé zprávě.
+    # (Ne do OSOBNOSTI! Ta se během konverzace nesmí měnit, jinak Claude
+    # odmítne pokračovat - jeho dřívější myšlenky jsou svázané s osobností.)
     ted = datetime.datetime.now()
-    system = OSOBNOST + f"\nDnes je {DNY[ted.weekday()]} {ted:%d.%m.%Y}, čas {ted:%H:%M}."
+    cas = f"[{DNY[ted.weekday()]} {ted:%d.%m.%Y}, {ted:%H:%M}]"
+    historie.append({"role": "user", "content": f"{cas} {text}"})
 
     def vypis(kousek):
         if pri_kousku:

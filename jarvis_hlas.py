@@ -101,8 +101,10 @@ def nahraj():
 def prepis(zvuk):
     """Převede nahraný zvuk na text pomocí Whisperu."""
     # vad_filter=True vyřízne ticho, takže Whisper nevymýšlí slova z šumu
+    #   (threshold 0.3 = je citlivější, ať nevyhodí tiše řečená slova)
     # hotwords = slova, která má Whisper čekat (aby poznal jméno "Jarvis")
     segmenty, _ = whisper.transcribe(zvuk, language="cs", vad_filter=True,
+                                     vad_parameters={"threshold": 0.3},
                                      hotwords="Jarvisi Jarvis")
     return " ".join(s.text for s in segmenty).strip()
 

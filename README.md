@@ -10,6 +10,7 @@ Projekt vzniká postupně jako výuka programování v Pythonu.
 - 🧠 přemýšlí přes Claude API (model Claude Haiku 5.5)
 - 🔊 odpovídá hlasem po větách (edge-tts)
 - ☀️ zjistí počasí (Open-Meteo, zdarma)
+- 🧠 dlouhodobá paměť v souboru `pamet.txt` (zůstává jen na tvém PC, na GitHub se nenahrává)
 - 🖥️ okno s animovaným reaktorem, titulky a počítadlem ceny
 
 ## Soubory

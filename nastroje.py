@@ -8,15 +8,22 @@
 # Nástroje, které by něco mazaly, posílaly nebo platily, budou vždy
 # chtít tvoje potvrzení.
 
+import datetime
 import json
+import re
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 # ---------------------------------------------------------------
 # NASTAVENÍ
 # ---------------------------------------------------------------
 
 DOMOVSKE_MESTO = "Praha"  # kde bydlíš - přepiš si na své město
+
+# Dlouhodobá paměť - obyčejné textové soubory, můžeš je otevřít a upravit
+PAMET = Path(__file__).parent / "pamet.txt"
+ZAPOMENUTO = Path(__file__).parent / "pamet_zapomenuto.txt"  # nic se nemaže, jen se přesune sem
 
 # Čísla počasí (WMO kódy) -> česky
 POPIS_POCASI = {
@@ -85,6 +92,36 @@ def zjisti_pocasi(mesto):
         })
     return json.dumps(vysledek, ensure_ascii=False)
 
+
+def nacti_pamet():
+    """Vrátí všechno, co si JARVIS pamatuje (nebo prázdný text)."""
+    if PAMET.exists():
+        return PAMET.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def zapamatuj_si(informace):
+    """Připíše jednu informaci na konec paměti, i s datem."""
+    # Pojistka: dlouhá řada číslic může být číslo karty nebo účtu - to neukládáme
+    if re.search(r"\d[\d \-]{11,}\d", informace):
+        return "Neuloženo: vypadá to na číslo karty nebo účtu, takové věci si neukládám."
+    with PAMET.open("a", encoding="utf-8") as soubor:
+        soubor.write(f"- {datetime.date.today():%d.%m.%Y}: {informace}\n")
+    return "Uloženo do paměti."
+
+
+def zapomen(text):
+    """Přesune z paměti řádky, které obsahují zadaný text, do pamet_zapomenuto.txt."""
+    radky = nacti_pamet().splitlines()
+    pryc = [r for r in radky if text.lower() in r.lower()]
+    if not pryc:
+        return f"V paměti nic s '{text}' není."
+    zustava = [r for r in radky if r not in pryc]
+    PAMET.write_text("\n".join(zustava) + ("\n" if zustava else ""), encoding="utf-8")
+    with ZAPOMENUTO.open("a", encoding="utf-8") as soubor:
+        soubor.write("\n".join(pryc) + "\n")
+    return "Zapomenuto: " + "; ".join(pryc)
+
 # ---------------------------------------------------------------
 # SEZNAM NÁSTROJŮ PRO CLAUDA
 # ---------------------------------------------------------------
@@ -106,11 +143,44 @@ NASTROJE = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "zapamatuj_si",
+        "description": "Uloží jednu důležitou informaci o uživateli do dlouhodobé paměti, "
+                       "která vydrží i po vypnutí. Použij, když tě uživatel požádá, ať si něco "
+                       "zapamatuješ, nebo když o sobě řekne něco trvale důležitého (jméno, škola, "
+                       "koníčky, plány, termíny testů, oblíbené věci). Neukládej drobnosti z "
+                       "rozhovoru ani věci, které už v paměti jsou. NIKDY neukládej hesla, PINy, "
+                       "čísla karet ani účtů.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "informace": {"type": "string",
+                              "description": "Krátká věta, např. 'V pátek 30.10. píše test z matiky (zlomky).'"},
+            },
+            "required": ["informace"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "zapomen",
+        "description": "Odebere z dlouhodobé paměti záznamy, které obsahují zadaný text. "
+                       "Použij JEN když tě o to uživatel výslovně požádá.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Slovo nebo část věty, např. 'test z matiky'"},
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 # Jméno nástroje -> funkce, která se spustí
 FUNKCE = {
     "zjisti_pocasi": zjisti_pocasi,
+    "zapamatuj_si": zapamatuj_si,
+    "zapomen": zapomen,
 }
 
 

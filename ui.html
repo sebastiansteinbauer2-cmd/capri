@@ -36,6 +36,9 @@
   body.mluvim .stred      { animation: pulz .5s ease-in-out infinite; opacity: .7; }
 
   .stav { margin-top: 28px; letter-spacing: 4px; font-size: 14px; color: var(--cyan); }
+  /* Ukazatel hlasitosti mikrofonu - když mluvíš a nehýbe se, JARVIS tě neslyší */
+  .mereni { margin-top: 10px; width: 200px; height: 4px; background: #0f2633; border-radius: 2px; overflow: hidden; }
+  #uroven { height: 100%; width: 0; background: var(--cyan); transition: width .08s; }
   body.premyslim .stav { color: var(--amber); }
 
   .titulky { margin-top: 24px; width: min(720px, 90vw); min-height: 140px; }
@@ -62,6 +65,7 @@
   </div>
 
   <div class="stav" id="stav">NAČÍTÁM SYSTÉMY...</div>
+  <div class="mereni"><div id="uroven"></div></div>
 
   <div class="titulky">
     <div class="ty" id="ty"></div>
@@ -81,6 +85,7 @@
   function zacniOdpoved()         { document.getElementById('odpoved').textContent = ''; }
   function pridejOdpoved(kousek)  { document.getElementById('odpoved').textContent += kousek; }
   function ukazCenu(text)         { document.getElementById('cena').textContent = text; }
+  function ukazHlasitost(x)       { document.getElementById('uroven').style.width = Math.min(100, Math.sqrt(x) * 250) + '%'; }
 
   // Tlačítka a psaní posílají věci do Pythonu přes window.pywebview.api
   async function prepniMikrofon() {

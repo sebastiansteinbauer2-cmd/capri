@@ -23,6 +23,7 @@ import anthropic
 import numpy as np
 import sounddevice as sd
 import webview  # pywebview - udělá z HTML stránky okno aplikace
+from faster_whisper.vad import get_vad_model  # malá AI, která pozná lidský hlas
 
 import jarvis
 
@@ -31,15 +32,16 @@ import jarvis
 # ---------------------------------------------------------------
 
 # Jak může Whisper zapsat slovo "Jarvis" (bez háčků a čárek, malými písmeny)
-PROBOUZECI_SLOVA = ["jarvis", "jarvys", "dzarvis", "dzarvys", "jervis"]
+PROBOUZECI_SLOVA = ["jarvis", "jarvys", "jarvic", "jarviz", "dzarvis", "dzarvys",
+                    "dzervis", "jervis", "jervys", "garvis"]
 
-AKTIVNI_SEKUND = 15  # jak dlouho po odpovědi můžeš mluvit dál bez "Jarvisi"
-TICHO_KONEC = 0.9    # kolik sekund ticha znamená, že jsi domluvil (víc = neuřízne pauzy)
-CITLIVOST = 2.5      # kolikrát hlasitější než hluk v místnosti musí být řeč (míň = citlivější)
-MAX_DELKA = 15       # nejdelší věta v sekundách
+AKTIVNI_SEKUND = 20  # jak dlouho po odpovědi můžeš mluvit dál bez "Jarvisi"
+TICHO_KONEC = 1.0    # kolik sekund ticha znamená, že jsi domluvil (víc = neuřízne pauzy)
+JISTOTA_RECI = 0.5   # jak moc si musí být jistý, že mluvíš (0 až 1, míň = citlivější)
+MAX_DELKA = 20       # nejdelší věta v sekundách
 
 FREKVENCE = 16000
-BLOK = 480           # mikrofon čteme po kouscích 30 ms (16000 * 0.03)
+BLOK = 512           # mikrofon čteme po kouscích 32 ms (tolik chce rozpoznávač hlasu)
 
 # ---------------------------------------------------------------
 # STAV APLIKACE
@@ -86,24 +88,37 @@ class Api:
 # ---------------------------------------------------------------
 
 
+class Ucho:
+    """Pozná, jestli v mikrofonu mluví člověk (Silero VAD).
+
+    Na rozdíl od měření hlasitosti nereaguje na bouchnutí, větrák nebo hudbu
+    a pozná i tiše řečená slova."""
+
+    def __init__(self):
+        self.model = get_vad_model()
+        self.okenko = collections.deque(maxlen=16)  # posledních 0.5 s zvuku
+
+    def je_to_rec(self, blok):
+        """Vrátí číslo 0 až 1 - jak moc si je jistý, že v posledním kousku mluvíš."""
+        self.okenko.append(blok)
+        jistoty = self.model(np.concatenate(self.okenko))
+        return float(np.asarray(jistoty).reshape(-1)[-1])
+
+
 def hlasitost(blok):
     """Jak hlasitý je kousek zvuku (0 = ticho)."""
     return float(np.sqrt(np.mean(blok ** 2)))
 
 
-def zmer_hluk(mikrofon):
-    """Poslouchá 1 sekundu a podle hluku v místnosti nastaví, co je už 'mluvení'."""
-    urovne = [hlasitost(mikrofon.read(BLOK)[0]) for _ in range(FREKVENCE // BLOK)]
-    return max(0.008, float(np.median(urovne)) * CITLIVOST)
-
-
-def cekej_na_vetu(mikrofon, prah):
+def cekej_na_vetu(mikrofon, ucho):
     """Půl sekundy čeká, jestli začneš mluvit. Když ano, nahraje celou větu."""
-    predtim = collections.deque(maxlen=15)  # posledních 0.45 s, ať neuřízneme začátek slova
+    predtim = collections.deque(maxlen=16)  # posledních 0.5 s, ať neuřízneme začátek slova
     zacal = False
-    for _ in range(FREKVENCE // BLOK // 2):
+    for i in range(FREKVENCE // BLOK // 2):
         blok = mikrofon.read(BLOK)[0][:, 0]
-        if hlasitost(blok) > prah:
+        if i % 3 == 0:
+            ui("ukazHlasitost", hlasitost(blok))  # ukazatel v okně
+        if ucho.je_to_rec(blok) > JISTOTA_RECI:
             zacal = True
             break
         predtim.append(blok)
@@ -116,7 +131,11 @@ def cekej_na_vetu(mikrofon, prah):
            and len(nahravka) < MAX_DELKA * FREKVENCE / BLOK):
         blok = mikrofon.read(BLOK)[0][:, 0]
         nahravka.append(blok)
-        bloku_ticha = bloku_ticha + 1 if hlasitost(blok) < prah else 0
+        if len(nahravka) % 3 == 0:
+            ui("ukazHlasitost", hlasitost(blok))
+        # pod 0.35 = ticho; trochu níž než začátek, ať se věta netrhá
+        bloku_ticha = bloku_ticha + 1 if ucho.je_to_rec(blok) < JISTOTA_RECI - 0.15 else 0
+    ui("ukazHlasitost", 0)
     return np.concatenate(nahravka)
 
 
@@ -155,11 +174,11 @@ def zpracuj(text):
         hlas.promluv("Na shledanou, pane.")
         okno.destroy()
         return
-    if prikaz in ("reset", "zapomen vsechno"):
+    if prikaz in ("reset", "nova konverzace"):  # smaže jen konverzaci, dlouhodobá paměť zůstane
         jarvis.historie.clear()
         ui("ukazTy", "")
         ui("zacniOdpoved")
-        hlas.promluv("Paměť vymazána, pane.")
+        hlas.promluv("Začínáme novou konverzaci, pane.")
         return
 
     ui("ukazTy", text)
@@ -203,11 +222,10 @@ def hlavni_smycka():
     import jarvis_hlas  # načte Whisper (pár sekund), proto až když už je vidět okno
     hlas = jarvis_hlas
 
+    ucho = Ucho()
+
     with sd.InputStream(samplerate=FREKVENCE, channels=1, dtype="float32",
                         blocksize=BLOK) as mikrofon:
-        nastav_stav("nacitam", "MĚŘÍM HLUK V MÍSTNOSTI - BUĎ CHVILKU POTICHU")
-        prah = zmer_hluk(mikrofon)
-
         nastav_stav("mluvim", "MLUVÍM")
         hlas.promluv("Systémy online. K vašim službám, pane.")
         posledni_odpoved = time.time()
@@ -233,7 +251,7 @@ def hlavni_smycka():
             else:
                 nastav_stav("ceka", 'ŘEKNI "JARVISI..."')
 
-            zvuk = cekej_na_vetu(mikrofon, prah)
+            zvuk = cekej_na_vetu(mikrofon, ucho)
             if zvuk is None or len(zvuk) < FREKVENCE * 0.4:  # nic, nebo jen krátké ťuknutí
                 continue
 
@@ -241,6 +259,9 @@ def hlavni_smycka():
             text = hlas.prepis(zvuk)
             if text and (aktivni or obsahuje_probouzeci_slovo(text)):
                 zpracuj(text)
+            elif text:
+                # Slyšel, ale chybělo "Jarvisi" - ukážeme to, ať víš, co slyšel
+                ui("ukazTy", f"(slyšel jsem „{text}“, ale bez „Jarvisi“ - ignoruji)")
             vyprazdni(mikrofon)
 
 
