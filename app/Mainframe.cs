@@ -397,8 +397,9 @@ namespace CapriDesktop
             cursor = Check("Use her cursor", 28 + c, 502, 150, delegate { if (!syncing) capri.ToggleCursor(); });
             // Blackwall mode was "Bypass all permissions" until 0.7.4; its label says what it does.
             bypass = Check("Blackwall mode", 186 + c, 502, 170, delegate { if (!syncing) capri.ToggleBypass(); });
-            bypass.AccessibleName = "Blackwall mode. She won't ask twice when you ask her to do something";
-            blackwallNote = Caption("She won't ask twice when you ask her to do something.", 28 + c, 526, Look.Mono(8.5f, FontStyle.Regular, GraphicsUnit.Point), Look.Dim);
+            bypass.AccessibleName = "Blackwall mode. Turned off for safety in this version";
+            bypass.Enabled = false;  // SAFETY: the switch can't be turned on
+            blackwallNote = Caption("Turned off for safety. She always asks first.", 28 + c, 526, Look.Mono(8.5f, FontStyle.Regular, GraphicsUnit.Point), Look.Dim);
             blackwallNote.AutoSize = false;
             blackwallNote.TextAlign = ContentAlignment.MiddleRight;
             blackwallNote.Bounds = new Rectangle(28 + c, 526, 328, 18);

@@ -720,8 +720,14 @@ namespace CapriDesktop
             string request = agreed ? recent[0].Content : text;
             bool follows = !agreed && recent.Count == 2 && Hands.Follows(text, recent[0].Content, recent[1].Content);
             bool reached = false;
+            // SAFETY: a PC job that sends, posts, buys, deletes, installs, ends a call or shuts down waits for their yes.
+            string probe;
+            ToolArguments probeArgs;
+            bool job = act != null && (Hands.Wants(request) || Hands.Heard(request, out probe, out probeArgs));
+            string confirm = job && !agreed && Hands.NeedsOk(request) ? Hands.Confirm(request) : null;
+            if (confirm != null) { }
             // Her "what should I remember?" is answered by their next message, which is saved as the note.
-            if (act != null && recent.Count == 2 && Hands.AskedWhat(recent[1].Content) && !Regex.IsMatch(text.Trim(), @"\?\s*$|^(no|nah|nope|nvm|never ?mind|nothing|cancel|forget it|stop)\b|^(yes|yeah|yep|ok|okay|sure|idk|hmm+)\W*$", RegexOptions.IgnoreCase))
+            else if (act != null && recent.Count == 2 && Hands.AskedWhat(recent[1].Content) && !Regex.IsMatch(text.Trim(), @"\?\s*$|^(no|nah|nope|nvm|never ?mind|nothing|cancel|forget it|stop)\b|^(yes|yeah|yep|ok|okay|sure|idk|hmm+)\W*$", RegexOptions.IgnoreCase))
                 calls.Add(new KeyValuePair<string, ToolArguments>("remember", new ToolArguments { Text = text }));
             else if (act != null && Hands.Heard(request, out direct, out directArgs))
             {
@@ -737,10 +743,11 @@ namespace CapriDesktop
                 {
                     string handed = Reach(model, request, follows ? recent : new List<ChatMessage>(), calls, ticket);
                     Hands.Rescue(request, calls);
-                    if (calls.Count == 0 && (agreed || Hands.Hesitant(handed, request))) calls.Add(Hands.Forced(request));
+                    if (calls.Count == 0 && agreed) calls.Add(Hands.Forced(request));  // SAFETY: her asking first is no longer overridden
                 }
             }
-            if (calls.Count == 0)
+            if (confirm != null) raw = confirm;
+            else if (calls.Count == 0)
             {
                 raw = Think(model, messages, false, new List<KeyValuePair<string, ToolArguments>>(), null, Budget, ticket);
                 ToolArguments lookup = act != null ? Hands.Lookup(text, Clean(raw)) : null;
@@ -748,7 +755,7 @@ namespace CapriDesktop
                 // "I can't see your screen" is never true: she looks instead.
                 if (act != null && Hands.CantSee(Clean(raw))) calls.Add(new KeyValuePair<string, ToolArguments>("look_at_screen", new ToolArguments { Focus = request }));
                 else if (lookup != null) calls.Add(new KeyValuePair<string, ToolArguments>("open_website", lookup));
-                else if (act != null && (hesitant || Hands.Promised(Clean(raw))))
+                else if (act != null && !hesitant && Hands.Promised(Clean(raw)))  // SAFETY: when she asks first, her question goes to them
                 {
                     if (!reached)
                     {

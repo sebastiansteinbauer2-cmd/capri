@@ -70,10 +70,10 @@ namespace CapriDesktop
             "\nYou have tools for their PC: open (launch, play) their apps and games, switch to, minimize or close apps that are open, play songs or videos they name, open websites or search them, control their music and volume, look at their screen, and use their mouse and keyboard for jobs inside apps and sites. " +
             "Use a tool whenever they ask you to do something like that, and never say you did or are doing it without one. Look at their screen when they ask what you see or what you think of something on it. Only close an app when they ask you to. " +
             "Your own website, where people download you, is " + Home + ". " +
-            "They've already given you permission for anything they ask you to do on their PC, so do all of it straight away: never ask which option they meant, never ask if they're sure, never make them confirm or ask for things one at a time, and when they leave the choice to you, like which song, video or game, pick one yourself. " +
-            "You can do anything on their PC they ask: send messages and DMs, reply, post, join, leave or end calls, and any other job in their apps with use_computer. Never ask if they want you to, never read a message back to check it first, and never tell them to do it themselves. Mute my mic means mute their mic, not deafen them. Never say you can't do something your tools can do. " +
+            "Harmless jobs like opening apps, playing music or searching, do straight away, and when they leave the choice to you, like which song, video or game, pick one yourself. " +
+            "Before anything that sends, posts, buys, pays, deletes, installs, ends a call or changes their account, ask them first and wait for a clear yes; read a message back before you send it. Never type passwords or card numbers. Mute my mic means mute their mic, not deafen them. Never say you can't do something your tools can do. " +
             "You can press shortcuts: mute or deafen them in Discord, screenshots, clips, recording, Game Bar, show desktop, Task Manager, clipboard history and emoji. " +
-            "You can shut down, restart, sleep, lock or sign out of their PC with power: when they ask, do it straight away and never ask if they're sure. " +
+            "You can shut down, restart, sleep, lock or sign out of their PC with power: when they ask, check once that they're sure first. " +
             "When they ask you to remember or forget something about them, or to leave or make a memory, use remember: it saves to your notes, me.md, which you read every chat. Never say you can't keep memories. " +
             "You have a web browser: when they ask something you don't know or that changes, like the weather, news, scores, prices or times, search Google for it instead of guessing or saying you can't. " +
             "Most messages are just chat, not jobs: answer those as yourself, with your own opinions and tastes, and don't offer to open, play or look at anything unless they ask.";
@@ -368,6 +368,18 @@ namespace CapriDesktop
         private static readonly Regex Hesitation = new Regex(@"\b(do you want me to|you want me to|want me to|would you like me to|should i|shall i|is it ok(ay)? (if i|for me to|to)|ok(ay)? (if i|for me to|to)|mind if i|are you sure|you sure|just to (check|confirm)|(can|could) you confirm|confirm(ing)?|double[- ]?check(ing)?|ready (for me )?to)\b[^.!?]{0,160}?\b(send|sent|post|messag|dm|text|typ|writ|past|shar|repl|open|launch|start|clos|quit|join|leav|end|hang|call|ring|shut|turn|power|restart|reboot|sleep|lock|sign|log|delet|remov|click|press|mut|unmut|deafen|undeafen|play|paus|skip|search|install|uninstall|go ahead|proceed|do (it|that|this))\w*" +
             @"|\b(say the word|just say (yes|go|so|the word)|give me the (go[- ]ahead|ok|okay|word|green light)|(with|on) your (ok|okay|go[- ]ahead|say[- ]so)|let me know (if|when) (you want|you'?re ready|to go|it'?s ok))\b|\b(is that|that) (right|correct|ok(ay)?|what you want)\s*\?|^\W*(are you sure|you sure|really|confirm)\W*$", RegexOptions.IgnoreCase);
         private static readonly Regex Agreeing = new Regex(@"^(yes+|yeah|yea|yep|yup|ya|ye|sure|ok(ay)?|k|do it|go ahead|go for it|send it|post it|of course|obviously|duh|absolutely|definitely|correct|right|i'?m sure|i said (so|yes)|that'?s (right|it|what i said))\b(?!.*\b(but|except|instead|change|actually|wait|don'?t|not)\b)", RegexOptions.IgnoreCase);
+
+        // SAFETY: jobs that change something outside the PC or can't be undone. She asks before these, every time.
+        private static readonly Regex Risky = new Regex(@"(send|dm|pm|message|msg|text|post|tweet|reply|respond|comment|publish|upload|buy|purchase|pay|order|checkout|check out|subscribe|donate|transfer|delete|remove|erase|wipe|trash|uninstall|install|download|format|shut ?down|turn off|power off|restart|reboot|sign out|log ?out|log ?off|end (the |this )?call|hang up|leave (the |this )?(call|server|group|chat)|kick|ban|unfriend|block|pošli|napiš|odešli|odpověz|zveřejni|kup|zaplať|objednej|smaž|vymaž|odstraň|odinstaluj|nainstaluj|stáhni|vypni|restartuj|odhlas)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        internal static bool NeedsOk(string said) { return Risky.IsMatch(Asked(said)); }
+
+        // Her check before a risky job. "Want me to" is what Hesitant looks for, so their "yes" runs the job.
+        internal static string Confirm(string said)
+        {
+            string job = Asked(said).Trim().TrimEnd('.', '!', '?');
+            return "Just checking before I touch anything: want me to " + job + "? Say yes and I'll do it.";
+        }
 
         // Her reply asking whether to do the PC job they just asked for, like "Want me to send that in #general?".
         internal static bool Hesitant(string reply, string said)

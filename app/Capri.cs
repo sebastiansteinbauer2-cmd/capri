@@ -942,7 +942,9 @@ namespace CapriDesktop
             Hands.Look = LookAt;
             Hands.Work = RunJob;
             brain.Act = DoTool;
-            Computer.Bypass = Safety.Bypass = preferences.Bypass;
+            // SAFETY: Blackwall mode is always off in this build, even if an older version saved it on.
+            preferences.Bypass = false;
+            Computer.Bypass = Safety.Bypass = false;
             Hands.Resume = ResumeJob;
             Hands.Rename = CallThem;
             Hands.Hush = Computer.Mask;
@@ -1917,10 +1919,11 @@ namespace CapriDesktop
 
         internal bool Bypassing { get { return preferences.Bypass; } }
 
+        // SAFETY: Blackwall mode (buys, deletes and types passwords without asking) can't be turned on.
         internal void ToggleBypass()
         {
-            preferences.Bypass = !preferences.Bypass;
-            Computer.Bypass = Safety.Bypass = preferences.Bypass;
+            preferences.Bypass = false;
+            Computer.Bypass = Safety.Bypass = false;
             SavePreferences();
             mainframe.Sync();
         }
