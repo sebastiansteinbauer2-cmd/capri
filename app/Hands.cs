@@ -67,7 +67,7 @@ namespace CapriDesktop
     internal static class Hands
     {
         internal const string Note =
-            "\nYou have tools for their PC: open (launch, play) their apps and games, switch to, minimize or close apps that are open, play songs or videos they name, open websites or search them, control their music and volume, look at their screen, and use their mouse and keyboard for jobs inside apps and sites. " +
+            "\nYou have tools for their PC: open (launch, play) their apps and games, open their folders in File Explorer, switch to, minimize or close apps that are open, play songs or videos they name, open websites or search them, control their music and volume, look at their screen, and use their mouse and keyboard for jobs inside apps and sites. " +
             "Use a tool whenever they ask you to do something like that, and never say you did or are doing it without one. Look at their screen when they ask what you see or what you think of something on it. Only close an app when they ask you to. " +
             "Your own website, where people download you, is " + Home + ". " +
             "Harmless jobs like opening apps, playing music or searching, do straight away, and when they leave the choice to you, like which song, video or game, pick one yourself. " +
@@ -80,7 +80,7 @@ namespace CapriDesktop
 
         internal const string Prompt =
             "You are the hands of Capri, a desktop companion on the user's Windows PC. You don't chat.\n" +
-            "Act only on their latest request. Earlier messages are context for names, not commands to repeat. Call one tool for each thing they ask for, however many there are (open Discord, Spotify and Steam is three open_app calls): open an app, game or website, search a site, play music, control media or volume, check the current song, switch to, minimize or close an app, or look at their screen when asked about it. Use the names they gave.\n" +
+            "Act only on their latest request. Earlier messages are context for names, not commands to repeat. Call one tool for each thing they ask for, however many there are (open Discord, Spotify and Steam is three open_app calls): open an app, game or website, open a folder with open_folder, search a site, play music, control media or volume, check the current song, switch to, minimize or close an app, or look at their screen when asked about it. Use the names they gave.\n" +
             "If the job needs clicking, typing or more than one step, like opening an app and then searching, going somewhere or making something in it, call use_computer once with the whole job in their words.\n" +
             "Sending a message, DM, reply or post, joining, leaving or ending a call, and any other job inside an app are use_computer jobs: pass their exact words, including what to send. They asked, so it's a job even when it sends, deletes or ends something.\n" +
             "When they name an app, never guess a website for it: use open_app, or use_computer if there's more to do.\n" +
@@ -100,6 +100,8 @@ namespace CapriDesktop
         {
             { "open_app", "Open, launch or play an app or game installed on their PC, like Spotify, Discord, Steam or Roblox.",
               "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"The app's name\"}},\"required\":[\"name\"]}" },
+            { "open_folder", "Open one of their folders in File Explorer, like Documents, Downloads, Desktop, Pictures, or a folder by its name. It only opens it: nothing is moved or deleted.",
+              "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":\"The folder's name, like Downloads or capri-desktop, or its full path\"}},\"required\":[\"name\"]}" },
             { "open_website", "Open a website in their browser, or search a site like YouTube or Google.",
               "{\"type\":\"object\",\"properties\":{\"site\":{\"type\":\"string\",\"description\":\"The site's name or address, like youtube.com\"},\"search\":{\"type\":\"string\",\"description\":\"Words to search for on that site, if any\"}},\"required\":[\"site\"]}" },
             { "media", "Control the music or video playing on their PC, the PC's volume (up, down, set to a level, mute or unmute), or check what song is playing.",
@@ -203,6 +205,7 @@ namespace CapriDesktop
             try
             {
                 if (tool == "open_app") return OpenApp(args.Name);
+                if (tool == "open_folder") return OpenFolder(args.Name);
                 if (tool == "open_website") return OpenSite(args.Site, args.Search);
                 if (tool == "media") return Media(args);
                 if (tool == "look_at_screen") return Look(args.Focus);
@@ -689,6 +692,7 @@ namespace CapriDesktop
         {
             if (args == null) return false;
             if (tool == "open_app") return Named(args.Name);
+            if (tool == "open_folder") return Named(args.Name);
             if (tool == "open_website") return Named(args.Site);
             if (tool == "look_at_screen") return true;
             if (tool == "media")
@@ -759,6 +763,54 @@ namespace CapriDesktop
             }
             catch (Exception) { }
             return false;
+        }
+
+        // Opens one of their folders in File Explorer. It only opens it: nothing is moved, changed or deleted.
+        private static string OpenFolder(string wanted)
+        {
+            string name = (wanted ?? "").Trim().Trim('"');
+            string path = KnownFolder(name) ?? FindFolder(name);
+            if (path == null) return "Couldn't find a folder called " + name + ", choom.";
+            using (Process.Start(new ProcessStartInfo("explorer.exe", "\"" + path + "\"") { UseShellExecute = false })) { }
+            return "Opened the " + Path.GetFileName(path.TrimEnd('\\')) + " folder.";
+        }
+
+        // Their usual folders, in English or Czech: "my downloads", "stažené soubory", "plocha"...
+        private static string KnownFolder(string name)
+        {
+            if (Path.IsPathRooted(name) && Directory.Exists(name)) return Path.GetFullPath(name);
+            string plain = Regex.Replace(name.ToLowerInvariant(), @"\b(my|the|folder|moje|můj|složk[auy]|slozk[auy])\b", " ").Trim();
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (Regex.IsMatch(plain, @"^(documents?|docs|dokumenty)$")) return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (Regex.IsMatch(plain, @"^(downloads?|stažené( soubory)?|stazene( soubory)?)$")) return Path.Combine(home, "Downloads");
+            if (Regex.IsMatch(plain, @"^(desktop|plocha|plochu)$")) return Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (Regex.IsMatch(plain, @"^(pictures?|photos?|obrázky|obrazky|fotky)$")) return Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            if (Regex.IsMatch(plain, @"^(music|hudba|hudbu)$")) return Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+            if (Regex.IsMatch(plain, @"^(videos?|videa)$")) return Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+            return null;
+        }
+
+        // A folder by its name, one level inside their home, Documents, Desktop or Downloads.
+        private static string FindFolder(string name)
+        {
+            if (name.Length == 0) return null;
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string[] roots = { home, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), Path.Combine(home, "Downloads") };
+            for (int pass = 0; pass < 2; pass++)
+                foreach (string root in roots)
+                {
+                    string[] dirs;
+                    try { dirs = Directory.GetDirectories(root); }
+                    catch (UnauthorizedAccessException) { continue; }
+                    catch (IOException) { continue; }
+                    foreach (string dir in dirs)
+                    {
+                        string found = Path.GetFileName(dir);
+                        // First an exact name, then a name that contains what they said.
+                        if (pass == 0 ? string.Equals(found, name, StringComparison.OrdinalIgnoreCase) : found.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0) return dir;
+                    }
+                }
+            return null;
         }
 
         private static string OpenApp(string wanted)
