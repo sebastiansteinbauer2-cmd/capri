@@ -4571,6 +4571,21 @@ namespace CapriDesktop
             });
         }
 
+        // What they last said in voice chat, so a risky tool call can check for their yes.
+        private volatile string agentHeard;
+
+        // Sends, posts, buys, deletes, ends calls, closes apps or turns the PC off: only right after they said yes.
+        // Otherwise the agent is told to ask them first. A yes covers one risky job.
+        private string VoiceChatOk(string tool, ToolArguments args)
+        {
+            bool risky = tool == "power"
+                || (tool == "use_computer" && args != null && Hands.NeedsOk(args.Task))
+                || (tool == "app_window" && args != null && args.Action == "close");
+            if (!risky) return null;
+            if (Hands.Agrees(agentHeard)) { agentHeard = null; return null; }
+            return "Not done yet. This job needs their OK first: ask them in one short line whether to do it, then call the tool again only after they clearly say yes.";
+        }
+
         private void Connect(string url, string voiceId, string language = "en")
         {
             Agent opened = new Agent();
@@ -4583,6 +4598,9 @@ namespace CapriDesktop
                     toolAsked = true;
                     if (tool == shortcutTool && Environment.TickCount - shortcutAt < 10000) return shortcutResult ?? "Already doing that.";
                 }
+                // SAFETY: in voice chat ElevenLabs' brain picks the tools, so a risky job waits here for their spoken yes.
+                string ask = VoiceChatOk(tool, args);
+                if (ask != null) return ask;
                 string key = MouseKey(tool, args);
                 if (key != null) return Later(opened, tool, args, key);
                 string done = DoTool(tool, args);
@@ -4592,7 +4610,7 @@ namespace CapriDesktop
                 return done;
             };
             opened.Opened += delegate(int rate) { Post(delegate { if (agent == opened) ChatOpened(rate); }); };
-            opened.Heard += delegate(string text) { Post(delegate { if (agent == opened) ChatHeard(text); }); };
+            opened.Heard += delegate(string text) { agentHeard = text; Post(delegate { if (agent == opened) ChatHeard(text); }); };
             opened.Replied += delegate(string text) { Post(delegate { if (agent == opened) ChatReplied(text); }); };
             opened.Audio += delegate(short[] samples)
             {
