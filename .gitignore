@@ -7,8 +7,12 @@ __pycache__/
 # Výpisy aplikace (můžou obsahovat tvoje konverzace)
 jarvis_log.txt
 
-# Dlouhodobá paměť JARVISe - osobní věci, nikdy na veřejný GitHub!
+# Osobní věci JARVISe - nikdy na veřejný GitHub!
 pamet*.txt
+denik.txt
+knihovna.txt
+stav_dne.json
+dokumenty/
 
 # Ukázky hlasů a nahrávky
 *.mp3

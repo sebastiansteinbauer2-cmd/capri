@@ -36,9 +36,9 @@ import jarvis  # náš soubor z kroku 1 - jeho funkce a nastavení
 HLASY = ["cs-CZ-AntoninNeural", "de-DE-FlorianMultilingualNeural"]
 
 # Model pro rozpoznávání řeči:
-#   na grafice (rychlá, přesná): "large-v3-turbo" (doporučeno) nebo "medium"
+#   na grafice: "large-v3" (nejpřesnější, doporučeno), "large-v3-turbo" (rychlejší)
 #   na procesoru (záloha, když grafika nejde): "small" nebo "base"
-WHISPER_GRAFIKA = "large-v3-turbo"
+WHISPER_GRAFIKA = "large-v3"
 WHISPER_PROCESOR = "small"
 
 FREKVENCE = 16000  # kolikrát za sekundu se měří zvuk (Whisper chce 16000)
@@ -46,7 +46,10 @@ FREKVENCE = 16000  # kolikrát za sekundu se měří zvuk (Whisper chce 16000)
 # Odpovědi se čtou nahlas, takže JARVISovi řekneme, ať mluví krátce
 jarvis.OSOBNOST += """
 Tvoje odpovědi se čtou nahlas, takže mluv krátce (1 až 3 věty)
-a nepoužívej odrážky, tabulky, kód ani emoji."""
+a nepoužívej odrážky, tabulky, kód ani emoji.
+Zprávy uživatele jsou automatický přepis řeči z mikrofonu, takže v nich můžou
+být špatně rozpoznaná slova. Odhadni, co uživatel nejspíš myslel (podle zvuku
+slov a smyslu věty). Když to opravdu nedává smysl, krátce se zeptej, co myslel."""
 
 # ---------------------------------------------------------------
 # PŘÍPRAVA - "UŠI"
@@ -98,15 +101,36 @@ def nahraj():
     return np.concatenate(kousky).flatten()  # slepí kousky do jednoho dlouhého zvuku
 
 
+# Věty, které si Whisper občas vymyslí, když slyší jen šum (naučil se je z titulků videí)
+VYMYSLENE = ["titulky", "děkuji za pozornost", "děkuji za sledování", "www.", "odebírejte",
+             "konec videa", "přeložil", "subtitles"]
+
+# Ukázka, jak vypadá řeč, kterou má čekat - pomůže mu se slovy i interpunkcí
+NAPOVEDA = "Jarvisi, jaké je dnes počasí? Zapamatuj si, že v pátek píšu test z matiky."
+
+
 def prepis(zvuk):
     """Převede nahraný zvuk na text pomocí Whisperu."""
-    # vad_filter=True vyřízne ticho, takže Whisper nevymýšlí slova z šumu
-    #   (threshold 0.3 = je citlivější, ať nevyhodí tiše řečená slova)
-    # hotwords = slova, která má Whisper čekat (aby poznal jméno "Jarvis")
-    segmenty, _ = whisper.transcribe(zvuk, language="cs", vad_filter=True,
-                                     vad_parameters={"threshold": 0.3},
-                                     hotwords="Jarvisi Jarvis")
-    return " ".join(s.text for s in segmenty).strip()
+    segmenty, _ = whisper.transcribe(
+        zvuk,
+        language="cs",
+        beam_size=5,                         # zkouší 5 variant a vybere nejlepší
+        vad_filter=True,                     # vyřízne ticho, ať nevymýšlí slova z šumu
+        vad_parameters={"threshold": 0.3},   # ...ale tiše řečená slova nechá
+        hotwords="Jarvisi Jarvis",           # slova, která má čekat
+        initial_prompt=NAPOVEDA,
+        condition_on_previous_text=False,
+    )
+    casti = []
+    for s in segmenty:
+        # no_speech_prob = jak moc si myslí, že tam nikdo nemluvil
+        # avg_logprob = jak moc si je jistý tím, co napsal (blíž k 0 = jistější)
+        if s.no_speech_prob > 0.6 and s.avg_logprob < -0.7:
+            continue  # nejspíš šum, ne řeč
+        if any(v in s.text.lower() for v in VYMYSLENE):
+            continue  # typická vymyšlená věta
+        casti.append(s.text)
+    return " ".join(casti).strip()
 
 # ---------------------------------------------------------------
 # "PUSA"

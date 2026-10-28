@@ -10,7 +10,14 @@ Projekt vzniká postupně jako výuka programování v Pythonu.
 - 🧠 přemýšlí přes Claude API (model Claude Haiku 5.5)
 - 🔊 odpovídá hlasem po větách (edge-tts)
 - ☀️ zjistí počasí (Open-Meteo, zdarma)
-- 🧠 dlouhodobá paměť v souboru `pamet.txt` (zůstává jen na tvém PC, na GitHub se nenahrává)
+- 🧠 dlouhodobá paměť v souboru `pamet.txt`
+- ☀️ ranní briefing (počasí + co tě dnes čeká)
+- 📓 večerní shrnutí dne do deníku, v neděli týdenní shrnutí
+- 📚 knihovna – co jsi četl/viděl a co ses naučil
+- 📁 čte dokumenty (txt, md, csv, pdf, docx) – jen ze složky `dokumenty`
+- 📸 na požádání se podívá na obrazovku a poradí s tím, co na ní je
+
+Paměť, deník, knihovna i dokumenty zůstávají jen na tvém PC a na GitHub se nenahrávají.
 - 🖥️ okno s animovaným reaktorem, titulky a počítadlem ceny
 
 ## Soubory

@@ -7,6 +7,7 @@
 #     pošle větu Claudovi (jarvis.py) a odpověď přečte nahlas (jarvis_hlas.py)
 
 import collections
+import datetime
 import json
 import queue
 import sys
@@ -40,8 +41,13 @@ TICHO_KONEC = 1.0    # kolik sekund ticha znamená, že jsi domluvil (víc = neu
 JISTOTA_RECI = 0.5   # jak moc si musí být jistý, že mluvíš (0 až 1, míň = citlivější)
 MAX_DELKA = 20       # nejdelší věta v sekundách
 
+RANNI_OD, RANNI_DO = 5, 11       # od kolika do kolika hodin dělá ranní briefing
+VECERNI_OD, VECERNI_DO = 20, 23  # kdy se ptá na denní shrnutí (v neděli týdenní)
+
 FREKVENCE = 16000
 BLOK = 512           # mikrofon čteme po kouscích 32 ms (tolik chce rozpoznávač hlasu)
+
+STAV_DNE = Path(__file__).parent / "stav_dne.json"  # kdy naposledy byl briefing/shrnutí
 
 # ---------------------------------------------------------------
 # STAV APLIKACE
@@ -159,29 +165,33 @@ def obsahuje_probouzeci_slovo(text):
 # ---------------------------------------------------------------
 
 
-def zpracuj(text):
-    """Vyřídí jednu větu - buď příkaz, nebo otázku pro Clauda."""
+def zpracuj(text, automaticky=False):
+    """Vyřídí jednu větu - buď příkaz, nebo otázku pro Clauda.
+
+    automaticky=True = zprávu neposlal uživatel, ale aplikace sama
+    (ranní briefing, večerní shrnutí). Neukazuje se v titulcích."""
     global posledni_odpoved
 
-    # "Jarvisi, konec." -> "konec"
-    prikaz = bez_diakritiky(text)
-    for slovo in PROBOUZECI_SLOVA:
-        prikaz = prikaz.replace(slovo + "i", "").replace(slovo, "")
-    prikaz = prikaz.strip(" .,!?")
+    if not automaticky:
+        # "Jarvisi, konec." -> "konec"
+        prikaz = bez_diakritiky(text)
+        for slovo in PROBOUZECI_SLOVA:
+            prikaz = prikaz.replace(slovo + "i", "").replace(slovo, "")
+        prikaz = prikaz.strip(" .,!?")
 
-    if prikaz in ("konec", "vypni se"):
-        nastav_stav("mluvim", "MLUVÍM")
-        hlas.promluv("Na shledanou, pane.")
-        okno.destroy()
-        return
-    if prikaz in ("reset", "nova konverzace"):  # smaže jen konverzaci, dlouhodobá paměť zůstane
-        jarvis.historie.clear()
-        ui("ukazTy", "")
-        ui("zacniOdpoved")
-        hlas.promluv("Začínáme novou konverzaci, pane.")
-        return
+        if prikaz in ("konec", "vypni se"):
+            nastav_stav("mluvim", "MLUVÍM")
+            hlas.promluv("Na shledanou, pane.")
+            okno.destroy()
+            return
+        if prikaz in ("reset", "nova konverzace"):  # smaže jen konverzaci, dlouhodobá paměť zůstane
+            jarvis.historie.clear()
+            ui("ukazTy", "")
+            ui("zacniOdpoved")
+            hlas.promluv("Začínáme novou konverzaci, pane.")
+            return
 
-    ui("ukazTy", text)
+    ui("ukazTy", "" if automaticky else text)
     ui("zacniOdpoved")
     nastav_stav("premyslim", "PŘEMÝŠLÍM")
 
@@ -205,6 +215,53 @@ def zpracuj(text):
     posledni_odpoved = time.time()
 
 
+# ---------------------------------------------------------------
+# NAPLÁNOVANÉ UDÁLOSTI - ranní briefing, večerní a týdenní shrnutí
+# ---------------------------------------------------------------
+# Tyhle zprávy posílá Claudovi aplikace sama, ne uživatel - proto to v nich stojí.
+
+RANNI_ZPRAVA = """(Automatická zpráva od aplikace JARVIS, ne od uživatele.)
+Je ráno a uživatel je u počítače. Přivítej ho krátkým ranním briefingem:
+zjisti počasí, podívej se do deníku za poslední 2 dny a z paměti připomeň,
+co ho dnes čeká (testy, úkoly, plány). Nejvýš 4 věty, začni "Dobré ráno, pane"."""
+
+VECERNI_ZPRAVA = """(Automatická zpráva od aplikace JARVIS, ne od uživatele.)
+Je večer - čas na denní shrnutí. Krátce se uživatele zeptej, jak se mu dnes
+dařilo: co se povedlo a co ne. Až odpoví, zapiš to stručně do deníku."""
+
+TYDENNI_ZPRAVA = """(Automatická zpráva od aplikace JARVIS, ne od uživatele.)
+Je neděle večer - čas na týdenní shrnutí. Přečti deník za posledních 7 dní
+a shrň uživateli týden: výhry, co se opakovalo (vzorce) a návrh plánu na
+příští týden. Nejvýš 6 vět. Shrnutí zapiš i do deníku. Pak se zeptej,
+jestli chce plán upravit."""
+
+
+def nacti_stav_dne():
+    """Kdy naposledy byl briefing a shrnutí (ať to není dvakrát za den)."""
+    try:
+        return json.loads(STAV_DNE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def naplanovana_udalost():
+    """Vrátí automatickou zprávu, když je čas na briefing nebo shrnutí. Jinak None."""
+    ted = datetime.datetime.now()
+    dnes = ted.date().isoformat()
+    stav = nacti_stav_dne()
+
+    if RANNI_OD <= ted.hour < RANNI_DO and stav.get("rano") != dnes:
+        zprava, stav["rano"] = RANNI_ZPRAVA, dnes
+    elif VECERNI_OD <= ted.hour < VECERNI_DO and stav.get("vecer") != dnes:
+        zprava = TYDENNI_ZPRAVA if ted.weekday() == 6 else VECERNI_ZPRAVA  # 6 = neděle
+        stav["vecer"] = dnes
+    else:
+        return None
+
+    STAV_DNE.write_text(json.dumps(stav), encoding="utf-8")
+    return zprava
+
+
 def mozek():
     """Spustí hlavní smyčku. Když spadne, ukáže chybu v okně místo zamrznutí."""
     try:
@@ -222,18 +279,35 @@ def hlavni_smycka():
     import jarvis_hlas  # načte Whisper (pár sekund), proto až když už je vidět okno
     hlas = jarvis_hlas
 
+    # Když JARVIS fotí obrazovku, ukážeme to - ať víš, že se dívá
+    jarvis.nastroje.pri_snimku = lambda: nastav_stav("premyslim", "📸 DÍVÁM SE NA OBRAZOVKU")
+
     ucho = Ucho()
 
     with sd.InputStream(samplerate=FREKVENCE, channels=1, dtype="float32",
                         blocksize=BLOK) as mikrofon:
-        nastav_stav("mluvim", "MLUVÍM")
-        hlas.promluv("Systémy online. K vašim službám, pane.")
+        udalost = naplanovana_udalost()
+        if udalost:
+            zpracuj(udalost, automaticky=True)  # třeba rovnou ranní briefing
+        else:
+            nastav_stav("mluvim", "MLUVÍM")
+            hlas.promluv("Systémy online. K vašim službám, pane.")
         posledni_odpoved = time.time()
         vyprazdni(mikrofon)
+        posledni_kontrola = time.time()
 
         while True:
             # Chvíli po odpovědi můžeš mluvit dál i bez "Jarvisi"
             aktivni = time.time() - posledni_odpoved < AKTIVNI_SEKUND
+
+            # Jednou za minutu: není čas na briefing / večerní shrnutí?
+            if time.time() - posledni_kontrola > 60 and mikrofon_zapnut and not aktivni:
+                posledni_kontrola = time.time()
+                udalost = naplanovana_udalost()
+                if udalost:
+                    zpracuj(udalost, automaticky=True)
+                    vyprazdni(mikrofon)
+                    continue
 
             if not fronta.empty():           # něco jsi napsal do okna
                 zpracuj(fronta.get())

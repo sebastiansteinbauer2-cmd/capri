@@ -5,6 +5,9 @@ edge-tts
 pygame
 pywebview
 numpy
+pillow
+pypdf
+python-docx
 # Volitelné - Whisper na grafice NVIDIA:
 nvidia-cublas-cu12
 nvidia-cudnn-cu12==9.*
