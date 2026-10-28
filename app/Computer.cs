@@ -1429,7 +1429,7 @@ namespace CapriDesktop
                 Show(null);
                 if (Computer.Interrupted) return End("stopped", Computer.Why);
                 if (reply.StopReason == "refusal") return End("failed", "I can't do that one.");
-                talk.Add("{\"role\":\"assistant\",\"content\":" + reply.Raw + "}");
+                talk.Add("{\"role\":\"assistant\",\"content\":" + WithoutThinking(reply) + "}");
                 List<ClaudeBlock> calls = new List<ClaudeBlock>();
                 StringBuilder said = new StringBuilder();
                 if (reply.Content != null)
@@ -1609,6 +1609,42 @@ namespace CapriDesktop
         }
 
         // The talk so far as Claude's messages, keeping only the newest three pictures like Anthropic suggests.
+        // Claude's thinking blocks are tied to the exact conversation they came from, and old screenshots turn into
+        // "[Image omitted]" as a job goes on, so Claude would refuse them later (HTTP 400). Her thoughts stay out of the job's history.
+        private static string WithoutThinking(ClaudeReply reply)
+        {
+            string raw = reply.Raw;
+            if (string.IsNullOrEmpty(raw) || raw[0] != '[' || reply.Content == null) return raw;
+            // The array's items, split at the top level, line up with the blocks the reply was read into.
+            List<string> items = new List<string>();
+            int depth = 0, start = -1;
+            bool quoted = false, escaped = false;
+            for (int i = 1; i < raw.Length; i++)
+            {
+                char c = raw[i];
+                if (quoted)
+                {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') quoted = false;
+                    continue;
+                }
+                if (c == '"') quoted = true;
+                else if (c == '{' || c == '[') { if (depth == 0) start = i; depth++; }
+                else if (c == '}' || c == ']')
+                {
+                    if (depth == 0) break;
+                    depth--;
+                    if (depth == 0) items.Add(raw.Substring(start, i - start + 1));
+                }
+            }
+            if (items.Count != reply.Content.Length) return raw;
+            List<string> kept = new List<string>();
+            for (int i = 0; i < items.Count; i++)
+                if (reply.Content[i] == null || (reply.Content[i].Type != "thinking" && reply.Content[i].Type != "redacted_thinking")) kept.Add(items[i]);
+            return kept.Count == 0 ? raw : "[" + string.Join(",", kept.ToArray()) + "]";
+        }
+
         private string Conversation()
         {
             int oldest = pictures.Count - 3;

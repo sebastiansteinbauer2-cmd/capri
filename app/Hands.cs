@@ -389,7 +389,7 @@ namespace CapriDesktop
         // Her check before a risky job. "Want me to" is what Hesitant looks for, so their "yes" runs the job.
         internal static string Confirm(string said)
         {
-            string job = Asked(said).Trim().TrimEnd('.', '!', '?');
+            string job = Asked(Asked(said)).Trim().TrimEnd('.', '!', '?');  // twice: "uh can you kick..." loses both the uh and the can you
             return "Just checking before I touch anything: want me to " + job + "? Say yes and I'll do it.";
         }
 
