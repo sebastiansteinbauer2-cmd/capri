@@ -751,7 +751,8 @@ namespace CapriDesktop
         private double voiceUntil;
         private bool spoke;
         private bool checkedIn;
-        private const string GlanceLine = "(You glance at their screen while they do their thing. React in one short line, in character, to something specific you can see: tease them, cheer them on, or ask about it. A game scene, scoreboard, inventory or quiet moment is enough. Don't invent action from a still image, and never guess who a person is; name someone only if their name is written on screen. For a blank screen, a bare desktop or a loading screen, reply with just SKIP.)";
+        // Her glances help first: when they look stuck, she gives a tip for what's on screen.
+        private const string GlanceLine = "(You glance at their screen while they do their thing. If they look stuck or something's going wrong, like an error message, a crash, homework or a problem they're working on, a confusing setting, or a puzzle or fight in a game, give one short, concrete tip for exactly what you see, in character. Otherwise react in one short line: cheer them on or ask about it. Don't invent action from a still image, and never guess who a person is; name someone only if their name is written on screen. Never read out private things like messages, passwords or bank details. For a blank screen, a bare desktop, a loading screen or nothing worth saying, reply with just SKIP.)";
         private const string BlackScreen = "The screen capture is black. Try borderless or windowed mode.";
         internal static Func<Rectangle, Bitmap> Grab = GrabScreen;
         internal static Func<IntPtr, Rectangle> Display = delegate(IntPtr window) { return window == IntPtr.Zero ? Screen.FromPoint(Cursor.Position).Bounds : Screen.FromHandle(window).Bounds; };
