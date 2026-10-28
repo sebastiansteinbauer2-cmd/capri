@@ -1,3 +1,19 @@
+> **This is a safety-modified copy of [lachydotmcg/capri-desktop](https://github.com/lachydotmcg/capri-desktop)**,
+> used for a personal, non-commercial hobby project under the original
+> [PolyForm Noncommercial License 1.0.0](LICENSE.md).
+> Required Notice: Copyright 2026 Lachy (https://github.com/lachydotmcg)
+>
+> **What's changed in this copy** (branch history shows every line):
+> - **Blackwall mode is locked off.** The switch can't be turned on, and a saved "on" is ignored.
+> - **Risky PC jobs ask first.** Anything that sends, posts, buys, pays, deletes, installs,
+>   ends a call or shuts down the PC waits for a clear "yes".
+> - **Her own "want me to…?" questions reach you** instead of being overridden.
+> - **Self-updates are off**, so an update can't replace this build. Build it yourself
+>   from source with `ci/build-windows.ps1`.
+>
+> The download links below point to the original project's releases, **not** to this safe build.
+> The original author is not responsible for these changes.
+
 <p align="center">
   <img src="assets/chip-source.png" alt="Chip" width="40%" align="middle">
   <img src="assets/capri.png" alt="Capri" width="40%" align="middle">
