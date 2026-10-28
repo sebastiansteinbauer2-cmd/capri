@@ -949,6 +949,7 @@ namespace CapriDesktop
             mainframe = new Mainframe(this, tray.Icon, Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
             voice.Key = Voice.Unprotect(preferences.VoiceKey);
             Hands.Look = LookAt;
+            Hands.Camera = LookAtCamera;
             Hands.Work = RunJob;
             brain.Act = DoTool;
             // SAFETY: Blackwall mode is always off in this build, even if an older version saved it on.
@@ -2938,6 +2939,56 @@ namespace CapriDesktop
                 fetchingEyes = false;
                 Post(delegate { if (brain.Local == local) mainframe.ShowProblem(problem ?? "Her eyes are in. She can see your screen now."); });
             });
+        }
+
+        // Her eyes on the real world: one photo from their webcam, only when they ask. The camera light shows while it's on.
+        private const string CameraLine = "Describe what this webcam photo shows in two or three plain sentences. If there is handwriting, homework, maths or any written work, copy it out exactly, line by line, including any mistakes, so it can be checked. If they're building or making something, describe the parts and how they fit together. Never guess who a person is.";
+
+        private string LookAtCamera(string focus)
+        {
+            byte[] photo;
+            try { photo = WebcamPhoto(); }
+            catch (Exception error)
+            {
+                Brain.Log("camera", -1, error.Message);
+                return "Couldn't open their camera. They may need to allow camera access for desktop apps in Windows Settings > Privacy & security > Camera.";
+            }
+            if (photo == null || photo.Length == 0) return "The camera gave back nothing.";
+            byte[] shot;
+            using (MemoryStream data = new MemoryStream(photo))
+            using (Bitmap picture = new Bitmap(data))
+                shot = Jpeg(picture, 1280);
+            string seen;
+            try { seen = brain.See(shot, "You describe photos accurately and briefly.", CameraLine + (string.IsNullOrWhiteSpace(focus) ? "" : "\nThey asked about: " + focus), 600); }  // room to copy out written work
+            catch (BrainException)
+            {
+                string unseen = Unseeing();
+                if (unseen == null) throw;
+                return unseen;
+            }
+            return seen.Length == 0 ? "You looked through their webcam but couldn't make anything out." : "You looked through their webcam. You see: " + seen;
+        }
+
+        private static byte[] WebcamPhoto()
+        {
+            Windows.Media.Capture.MediaCapture capture = new Windows.Media.Capture.MediaCapture();
+            try
+            {
+                capture.InitializeAsync(new Windows.Media.Capture.MediaCaptureInitializationSettings { StreamingCaptureMode = Windows.Media.Capture.StreamingCaptureMode.Video }).AsTask().Wait();
+                Thread.Sleep(800);  // the camera needs a moment to set its exposure, or the first photo comes out dark
+                using (Windows.Storage.Streams.InMemoryRandomAccessStream stream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+                {
+                    capture.CapturePhotoToStreamAsync(Windows.Media.MediaProperties.ImageEncodingProperties.CreateJpeg(), stream).AsTask().Wait();
+                    byte[] bytes = new byte[stream.Size];
+                    using (Windows.Storage.Streams.DataReader reader = new Windows.Storage.Streams.DataReader(stream.GetInputStreamAt(0)))
+                    {
+                        reader.LoadAsync((uint)stream.Size).AsTask().Wait();
+                        reader.ReadBytes(bytes);
+                    }
+                    return bytes;
+                }
+            }
+            finally { capture.Dispose(); }
         }
 
         private string LookAt(string focus)

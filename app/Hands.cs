@@ -67,7 +67,7 @@ namespace CapriDesktop
     internal static class Hands
     {
         internal const string Note =
-            "\nYou have tools for their PC: open (launch, play) their apps and games, open their folders in File Explorer, switch to, minimize or close apps that are open, play songs or videos they name, open websites or search them, control their music and volume, look at their screen, and use their mouse and keyboard for jobs inside apps and sites. " +
+            "\nYou have tools for their PC: open (launch, play) their apps and games, open their folders in File Explorer, look through their webcam at their paper or desk, switch to, minimize or close apps that are open, play songs or videos they name, open websites or search them, control their music and volume, look at their screen, and use their mouse and keyboard for jobs inside apps and sites. " +
             "Use a tool whenever they ask you to do something like that, and never say you did or are doing it without one. Look at their screen when they ask what you see or what you think of something on it. Only close an app when they ask you to. " +
             "Your own website, where people download you, is " + Home + ". " +
             "Harmless jobs like opening apps, playing music or searching, do straight away, and when they leave the choice to you, like which song, video or game, pick one yourself. " +
@@ -80,7 +80,7 @@ namespace CapriDesktop
 
         internal const string Prompt =
             "You are the hands of Capri, a desktop companion on the user's Windows PC. You don't chat.\n" +
-            "Act only on their latest request. Earlier messages are context for names, not commands to repeat. Call one tool for each thing they ask for, however many there are (open Discord, Spotify and Steam is three open_app calls): open an app, game or website, open a folder with open_folder, search a site, play music, control media or volume, check the current song, switch to, minimize or close an app, or look at their screen when asked about it. Use the names they gave.\n" +
+            "Act only on their latest request. Earlier messages are context for names, not commands to repeat. Call one tool for each thing they ask for, however many there are (open Discord, Spotify and Steam is three open_app calls): open an app, game or website, open a folder with open_folder, look at their paper, desk or something they hold up with look_at_camera, search a site, play music, control media or volume, check the current song, switch to, minimize or close an app, or look at their screen when asked about it. Use the names they gave.\n" +
             "If the job needs clicking, typing or more than one step, like opening an app and then searching, going somewhere or making something in it, call use_computer once with the whole job in their words.\n" +
             "Sending a message, DM, reply or post, joining, leaving or ending a call, and any other job inside an app are use_computer jobs: pass their exact words, including what to send. They asked, so it's a job even when it sends, deletes or ends something.\n" +
             "When they name an app, never guess a website for it: use open_app, or use_computer if there's more to do.\n" +
@@ -107,6 +107,8 @@ namespace CapriDesktop
             { "media", "Control the music or video playing on their PC, the PC's volume (up, down, set to a level, mute or unmute), or check what song is playing.",
               "{\"type\":\"object\",\"properties\":{\"action\":{\"type\":\"string\",\"description\":\"What to do\",\"enum\":[\"play_pause\",\"next\",\"previous\",\"volume_up\",\"volume_down\",\"volume_set\",\"mute\",\"unmute\",\"now_playing\"]},\"level\":{\"type\":\"string\",\"description\":\"For volume_set, the volume from 0 to 100. For volume_up or volume_down, how many percent to change it, only if they said\"}},\"required\":[\"action\"]}" },
             { "look_at_screen", "Take a screenshot of their screen and look at it right now: what they're doing, playing or showing you. Use it whenever they ask you to check, look at or see their screen, or ask what something on it is. You can always look, so never say you can't see their screen.",
+              "{\"type\":\"object\",\"properties\":{\"focus\":{\"type\":\"string\",\"description\":\"What to look at, if they said\"}}}" },
+            { "look_at_camera", "Take one photo with their webcam and look at it: their homework or maths on paper, something they're building or holding up, the real world in front of the PC. Use it only when they ask you to look at their paper, desk, camera or something they're holding, not for their screen.",
               "{\"type\":\"object\",\"properties\":{\"focus\":{\"type\":\"string\",\"description\":\"What to look at, if they said\"}}}" },
             { "play_music", "Play a song, playlist, album or artist they name, on Spotify or YouTube. For their liked songs, use kind playlist and song Liked Songs. If they leave the pick to you, pick a track from the Cyberpunk 2077 or Edgerunners soundtrack.",
               "{\"type\":\"object\",\"properties\":{\"song\":{\"type\":\"string\",\"description\":\"What to play, like a song and its artist or a playlist's name\"},\"kind\":{\"type\":\"string\",\"description\":\"What it is\",\"enum\":[\"song\",\"playlist\",\"album\",\"artist\"]},\"app\":{\"type\":\"string\",\"description\":\"Where to play it, if they said\",\"enum\":[\"spotify\",\"youtube\"]}},\"required\":[\"song\"]}" },
@@ -154,6 +156,7 @@ namespace CapriDesktop
         internal static Action<string> Run = Start;
         internal static Action<byte> Press = Tap;
         internal static Func<string, string> Look = delegate { return "You can't see their screen right now."; };
+        internal static Func<string, string> Camera = delegate { return "You can't see through their camera right now."; };
         internal static Func<string, string> Fetch = Download;
         internal static Func<List<OpenWindow>> Windows = ReadWindows;
         internal static Func<OpenWindow, string, bool> Steer = Apply;
@@ -209,6 +212,7 @@ namespace CapriDesktop
                 if (tool == "open_website") return OpenSite(args.Site, args.Search);
                 if (tool == "media") return Media(args);
                 if (tool == "look_at_screen") return Look(args.Focus);
+                if (tool == "look_at_camera") return Camera(args.Focus);
                 if (tool == "play_music") return PlayMusic(args.Song, args.App, args.Kind);
                 if (tool == "app_window") return Window(args.Name, args.Action);
                 if (tool == "use_computer") return string.IsNullOrWhiteSpace(args.Task) ? "Which job, choom?" : Safety.Stops(args.Task) != null ? "Not doing that, choom." : Work(args.Task.Trim(), args.Asked);
@@ -559,6 +563,8 @@ namespace CapriDesktop
             if (switched != null) { tool = "power"; args.Action = switched; args.Minutes = minutes; return true; }
             string pressed = ShortcutFor(text);
             if (pressed != null) { tool = "shortcut"; args.Name = pressed; return true; }
+            // Paper, desk, camera or something in their hands is the real world: her webcam, not their screen.
+            if (Regex.IsMatch(text, @"^(?:(?:can|could|would|will) (?:you|u) )?(?:look|peek|glance|check|see|take a look)\b.*\b(paper|sheet|notebook|homework|worksheet|desk|table|webcam|camera|holding|my hand|in front of me|this thing i made|what i('m| am) (making|building))\b", RegexOptions.IgnoreCase)) { tool = "look_at_camera"; args.Focus = text; return true; }
             if (ScreenAsk.IsMatch(text) || ScreenQuestion.IsMatch(text)) { tool = "look_at_screen"; args.Focus = ScreenQuestion.IsMatch(text) ? text : null; return true; }
             bool question = Regex.IsMatch((said ?? "").Trim(), @"\?\s*$");
             // "Can you remember that I main Jett?" asks her to save it; "remember when we played?" is chat.
@@ -704,6 +710,7 @@ namespace CapriDesktop
             if (tool == "open_folder") return Named(args.Name);
             if (tool == "open_website") return Named(args.Site);
             if (tool == "look_at_screen") return true;
+            if (tool == "look_at_camera") return true;
             if (tool == "media")
             {
                 int level;
