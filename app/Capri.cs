@@ -26,10 +26,33 @@ namespace CapriDesktop
         private static string lastCrash;
         private static int lastCrashAt;
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PowerThrottling { internal uint Version, ControlMask, StateMask; }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessInformation(IntPtr process, int infoClass, ref PowerThrottling info, int size);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentProcess();
+
+        // Windows on laptops moves apps that aren't in front onto its slow power-saving cores (EcoQoS).
+        // Capri is almost always behind their game or browser, so her ears, voice and screen grabs ran several
+        // times slower. This asks Windows not to throttle this one app; no Windows setting changes.
+        private static void Unthrottle()
+        {
+            try
+            {
+                PowerThrottling off = new PowerThrottling { Version = 1, ControlMask = 1, StateMask = 0 };
+                SetProcessInformation(GetCurrentProcess(), 4, ref off, Marshal.SizeOf(typeof(PowerThrottling)));
+            }
+            catch (EntryPointNotFoundException) { }
+        }
+
         [STAThread]
         private static int Main(string[] args)
         {
             try { Native.SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch (EntryPointNotFoundException) { Native.SetProcessDPIAware(); }
+            Unthrottle();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             bool smoke = args.Length == 2 && args[0] == "--smoke-test";

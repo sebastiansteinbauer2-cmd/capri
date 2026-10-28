@@ -897,7 +897,7 @@ namespace CapriDesktop
                 Marshal.WriteIntPtr(config, 16, keep(Path.Combine(folder, "decoder.int8.onnx")));
                 Marshal.WriteIntPtr(config, 24, keep(Path.Combine(folder, "joiner.int8.onnx")));
                 Marshal.WriteIntPtr(config, 104, keep(Path.Combine(folder, "tokens.txt")));
-                Marshal.WriteInt32(config, 112, Math.Max(1, Math.Min(4, Environment.ProcessorCount / 2)));
+                Marshal.WriteInt32(config, 112, Math.Max(1, Math.Min(8, Environment.ProcessorCount / 2)));  // up to 8 threads: she hears faster on bigger CPUs
                 Marshal.WriteIntPtr(config, 120, keep("cpu"));
                 Marshal.WriteIntPtr(config, 128, keep("nemo_transducer"));
                 recognizer = SherpaOnnxCreateOfflineRecognizer(config);

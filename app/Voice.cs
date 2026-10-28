@@ -636,7 +636,7 @@ namespace CapriDesktop
             try
             {
                 Config config = new Config();
-                config.Model.Threads = Math.Max(1, Math.Min(6, Environment.ProcessorCount / 2));
+                config.Model.Threads = Math.Max(1, Math.Min(8, Environment.ProcessorCount / 2));  // up to 8 threads for her free voice
                 config.Model.Provider = keep("cpu");
                 config.Model.Kokoro.Model = keep(Path.Combine(folder, "model.onnx"));
                 config.Model.Kokoro.Voices = keep(Path.Combine(folder, "voices.bin"));
