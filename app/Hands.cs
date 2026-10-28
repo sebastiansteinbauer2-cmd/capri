@@ -377,6 +377,15 @@ namespace CapriDesktop
 
         internal static bool NeedsOk(string said) { return Risky.IsMatch(Asked(said)); }
 
+        // "Kick from the server" with no name, usually because the name got lost in speech: she asks who instead of refusing.
+        private static readonly Regex Nameless = new Regex(@"^(kick|ban|remove|throw)(\s+(him|her|them|someone|somebody|out))?\s+(from|off|out of)\b", RegexOptions.IgnoreCase);
+
+        internal static string Who(string said)
+        {
+            if (!Nameless.IsMatch(Asked(said))) return null;
+            return "Who should I kick, choom? I didn't catch a name. Say it again with their Discord name, like kick mar123 from this group, or type it with Ctrl + Alt + T.";
+        }
+
         // Her check before a risky job. "Want me to" is what Hesitant looks for, so their "yes" runs the job.
         internal static string Confirm(string said)
         {

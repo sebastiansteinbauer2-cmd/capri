@@ -774,7 +774,8 @@ namespace CapriDesktop
             string probe;
             ToolArguments probeArgs;
             bool job = act != null && (Hands.Wants(request) || Hands.Heard(request, out probe, out probeArgs));
-            string confirm = job && !agreed && Hands.NeedsOk(request) ? Hands.Confirm(request) : null;
+            string confirm = act != null && !agreed ? Hands.Who(request) : null;
+            if (confirm == null && job && !agreed && Hands.NeedsOk(request)) confirm = Hands.Confirm(request);
             if (confirm != null) { }
             // Her "what should I remember?" is answered by their next message, which is saved as the note.
             else if (act != null && recent.Count == 2 && Hands.AskedWhat(recent[1].Content) && !Regex.IsMatch(text.Trim(), @"\?\s*$|^(no|nah|nope|nvm|never ?mind|nothing|cancel|forget it|stop)\b|^(yes|yeah|yep|ok|okay|sure|idk|hmm+)\W*$", RegexOptions.IgnoreCase))
