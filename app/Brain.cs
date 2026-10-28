@@ -187,7 +187,105 @@ namespace CapriDesktop
     {
         [DataMember(Name = "content")] public ClaudeBlock[] Content;
         [DataMember(Name = "stop_reason")] public string StopReason;
+        [DataMember(Name = "model")] public string Model;
+        [DataMember(Name = "usage")] public ClaudeUsage Usage;
         internal string Raw;
+    }
+
+    [DataContract]
+    internal sealed class ClaudeUsage
+    {
+        [DataMember(Name = "input_tokens")] public long Input;
+        [DataMember(Name = "output_tokens")] public long Output;
+        [DataMember(Name = "cache_read_input_tokens")] public long CacheRead;
+        [DataMember(Name = "cache_creation_input_tokens")] public long CacheWrite;
+    }
+
+    // What she spends, day by day, in spend.txt next to her other files: Claude in dollars,
+    // ElevenLabs as the letters she spoke (about one credit each) and minutes of voice chat.
+    internal static class Spend
+    {
+        internal static string Path;
+        private static readonly object gate = new object();
+
+        // Claude's prices in dollars per million tokens: input, output.
+        private static double[] Price(string model)
+        {
+            string name = model ?? "";
+            if (name.StartsWith("claude-haiku-5", StringComparison.Ordinal)) return new[] { 0.10, 0.50 };
+            if (name.StartsWith("claude-haiku-4", StringComparison.Ordinal)) return new[] { 1.0, 5.0 };
+            if (name.StartsWith("claude-opus-5-5", StringComparison.Ordinal)) return new[] { 4.0, 20.0 };
+            if (name.StartsWith("claude-opus", StringComparison.Ordinal)) return new[] { 5.0, 25.0 };
+            if (name.StartsWith("claude-fable", StringComparison.Ordinal) || name.StartsWith("claude-mythos", StringComparison.Ordinal)) return new[] { 10.0, 50.0 };
+            if (name.StartsWith("claude-sonnet-4", StringComparison.Ordinal)) return new[] { 3.0, 15.0 };
+            return new[] { 2.0, 10.0 };
+        }
+
+        internal static void Claude(ClaudeReply reply)
+        {
+            if (reply == null || reply.Usage == null) return;
+            double[] price = Price(reply.Model);
+            ClaudeUsage used = reply.Usage;
+            // Writing the cache costs a quarter more than plain input, reading it a tenth.
+            double dollars = ((used.Input + used.CacheWrite * 1.25 + used.CacheRead * 0.1) * price[0] + used.Output * price[1]) / 1000000;
+            Add(dollars, 0, 0);
+        }
+
+        internal static void Voice(int letters) { Add(0, letters, 0); }
+
+        internal static void Chat(double seconds) { Add(0, 0, seconds); }
+
+        // Today's line: "2026-10-29 claude=0.0312 voice=1240 chat=180"
+        private static void Add(double dollars, long letters, double seconds)
+        {
+            string path = Path;
+            if (path == null) return;
+            lock (gate)
+            {
+                try
+                {
+                    string today = DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                    List<string> lines = File.Exists(path) ? new List<string>(File.ReadAllLines(path)) : new List<string>();
+                    double[] day = Read(lines, today);
+                    day[0] += dollars; day[1] += letters; day[2] += seconds;
+                    lines.RemoveAll(line => line.StartsWith(today + " ", StringComparison.Ordinal));
+                    lines.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} claude={1:0.######} voice={2:0} chat={3:0}", today, day[0], day[1], day[2]));
+                    File.WriteAllLines(path, lines.ToArray());
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        private static double[] Read(List<string> lines, string date)
+        {
+            double[] day = new double[3];
+            foreach (string line in lines)
+            {
+                if (!line.StartsWith(date + " ", StringComparison.Ordinal)) continue;
+                string[] keys = { "claude", "voice", "chat" };
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    Match found = Regex.Match(line, @"\b" + keys[i] + @"=([0-9.]+)");
+                    if (found.Success) double.TryParse(found.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out day[i]);
+                }
+            }
+            return day;
+        }
+
+        // For her tray menu: "Today: $0.03 Claude · 1,240 voice credits · 3 min voice chat"
+        internal static string Today()
+        {
+            string path = Path;
+            double[] day = new double[3];
+            lock (gate)
+            {
+                try { if (path != null && File.Exists(path)) day = Read(new List<string>(File.ReadAllLines(path)), DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture, "Today: ${0:0.000} Claude · {1:#,0} voice credits · {2:0} min voice chat", day[0], day[1], day[2] / 60);
+        }
     }
 
     [DataContract]
@@ -1118,6 +1216,7 @@ namespace CapriDesktop
                 Sign(request, remote.Key, true);
                 if (fallback) request.Headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
             }, parts, ticket);
+            Spend.Claude(reply);
             if (reply.StopReason == "refusal") return Declined;
             return Spoken(reply, calls);
         }
@@ -1158,6 +1257,7 @@ namespace CapriDesktop
             ClaudeReply reply;
             using (MemoryStream data = new MemoryStream(Encoding.UTF8.GetBytes(text))) reply = (ClaudeReply)new DataContractJsonSerializer(typeof(ClaudeReply)).ReadObject(data);
             reply.Raw = Field(text, "content");
+            Spend.Claude(reply);
             if (reply.Raw == null) throw new BrainException("My brain sent an empty reply. Try again or pick another model in Capri Mainframe.", true);
             return reply;
         }

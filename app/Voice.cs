@@ -277,7 +277,9 @@ namespace CapriDesktop
             string model = Model;
             if (key == null || id == null) throw new VoiceException("No voice picked.");
             StringBuilder body = new StringBuilder("{\"text\":");
-            body.Append(Quote(Sayable(text)));
+            string said = Sayable(text);
+            Spend.Voice(said.Length);  // ElevenLabs charges about a credit per letter
+            body.Append(Quote(said));
             if (!string.IsNullOrEmpty(model)) body.Append(",\"model_id\":").Append(Quote(model));
             body.Append('}');
             return Clean(Send(Open("/v1/text-to-speech/" + Uri.EscapeDataString(id) + "?output_format=wav_24000", key, "POST"), Encoding.UTF8.GetBytes(body.ToString())));

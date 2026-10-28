@@ -837,6 +837,7 @@ namespace CapriDesktop
             Brain.MemoryPath = Path.Combine(data, "me.md");
             Brain.PastPath = Path.Combine(data, "past-chats.md");
             if (!smoke) HeardFixes.Path = Path.Combine(data, "heard-fixes.txt");
+            if (!smoke) Spend.Path = Path.Combine(data, "spend.txt");
             Brain.PersonalityPath = Path.Combine(data, Brain.PersonalityName);
             if (smoke) foreach (string old in new[] { Brain.PersonalityPath, Brain.PersonalityBackup }) if (File.Exists(old)) File.Delete(old);
             Brain.MakePersonality();
@@ -878,6 +879,11 @@ namespace CapriDesktop
             ToolStripMenuItem title = new ToolStripMenuItem("CAPRI  /  " + Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
             title.Enabled = false;
             menu.Items.Add(title);
+            // What she's spent today, refreshed every time the menu opens.
+            ToolStripMenuItem spentItem = new ToolStripMenuItem(Spend.Today());
+            spentItem.Enabled = false;
+            menu.Items.Add(spentItem);
+            menu.Opening += delegate { spentItem.Text = Spend.Today(); };
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(new ToolStripMenuItem("Open Capri Mainframe", null, delegate { mainframe.Restore(); }));
             visibilityItem = new ToolStripMenuItem("Hide Capri", null, delegate { SetHidden(!hidden); });
@@ -4574,6 +4580,16 @@ namespace CapriDesktop
         // What they last said in voice chat, so a risky tool call can check for their yes.
         private volatile string agentHeard;
 
+        // Voice chat on ElevenLabs is charged by the minute, so its length goes into spend.txt.
+        private DateTime chatStarted = DateTime.MinValue;
+
+        private void ChatEnded()
+        {
+            if (chatStarted == DateTime.MinValue) return;
+            Spend.Chat((DateTime.Now - chatStarted).TotalSeconds);
+            chatStarted = DateTime.MinValue;
+        }
+
         // Sends, posts, buys, deletes, ends calls, closes apps or turns the PC off: only right after they said yes.
         // Otherwise the agent is told to ask them first. A yes covers one risky job.
         private string VoiceChatOk(string tool, ToolArguments args)
@@ -4609,7 +4625,7 @@ namespace CapriDesktop
                 stirred = Environment.TickCount;
                 return done;
             };
-            opened.Opened += delegate(int rate) { Post(delegate { if (agent == opened) ChatOpened(rate); }); };
+            opened.Opened += delegate(int rate) { chatStarted = DateTime.Now; Post(delegate { if (agent == opened) ChatOpened(rate); }); };
             opened.Heard += delegate(string text) { agentHeard = text; Post(delegate { if (agent == opened) ChatHeard(text); }); };
             opened.Replied += delegate(string text) { Post(delegate { if (agent == opened) ChatReplied(text); }); };
             opened.Audio += delegate(short[] samples)
@@ -4624,7 +4640,7 @@ namespace CapriDesktop
                 });
             };
             opened.Interrupted += delegate { Post(delegate { if (agent == opened) speaker.Clear(); }); };
-            opened.Closed += delegate(string problem) { Post(delegate { if (agent != opened) return; if (problem != null) ChatFailed(problem); else Rest(); }); };
+            opened.Closed += delegate(string problem) { ChatEnded(); Post(delegate { if (agent != opened) return; if (problem != null) ChatFailed(problem); else Rest(); }); };
             agent = opened;
             opened.Start(url, voiceId);
         }
@@ -4823,6 +4839,7 @@ namespace CapriDesktop
             muteKey = false;
             chatTicket++;
             Agent closing = agent;
+            ChatEnded();
             agent = null;
             if (closing != null) closing.Stop();
             Dictation hearing = dictation;
@@ -4867,6 +4884,7 @@ namespace CapriDesktop
         {
             if (!chatting) return;
             Agent closing = agent;
+            ChatEnded();
             agent = null;
             chatTicket++;
             if (closing != null) closing.Stop();
