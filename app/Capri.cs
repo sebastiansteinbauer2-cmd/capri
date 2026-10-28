@@ -1227,6 +1227,11 @@ namespace CapriDesktop
 
         private void CheckForUpdates(bool asked)
         {
+            // SAFETY: an update from the original project would replace this safe build, so updates are off.
+            // New versions come in through git (merge, review the changes, build again).
+            if (asked) mainframe.UpdateNote("Updates are off in this safe build.", false);
+            return;
+#pragma warning disable 0162
             if (updating || installing) return;
             updating = true;
             updateStarted = true;
@@ -1336,6 +1341,7 @@ namespace CapriDesktop
 
         private void InstallUpdate()
         {
+            return;  // SAFETY: updates are off in this safe build (see CheckForUpdates)
             if (updating || installing || updateFile == null) return;
             installing = true;
             updateItem.Enabled = false;
