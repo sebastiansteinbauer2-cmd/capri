@@ -836,6 +836,7 @@ namespace CapriDesktop
             Brain.LogPath = Path.Combine(data, "errors.txt");
             Brain.MemoryPath = Path.Combine(data, "me.md");
             Brain.PastPath = Path.Combine(data, "past-chats.md");
+            if (!smoke) HeardFixes.Path = Path.Combine(data, "heard-fixes.txt");
             Brain.PersonalityPath = Path.Combine(data, Brain.PersonalityName);
             if (smoke) foreach (string old in new[] { Brain.PersonalityPath, Brain.PersonalityBackup }) if (File.Exists(old)) File.Delete(old);
             Brain.MakePersonality();

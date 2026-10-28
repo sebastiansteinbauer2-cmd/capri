@@ -674,6 +674,59 @@ namespace CapriDesktop
     // Her own ears: NVIDIA's Parakeet TDT 0.6B (CC-BY-4.0), run by the sherpa-onnx her free voice ships. v2 hears English;
     // v3 hears 25 European languages and works out which one it's hearing. They hear whichever mic is picked, offline,
     // without Windows' online speech setting.
+    // Words her ears keep getting wrong, fixed before she reads them: heard-fixes.txt, one "heard = meant" per line.
+    // They can add their friends' names there, like "mark = mar123ek45". It's reread whenever they save it.
+    internal static class HeardFixes
+    {
+        internal static string Path;
+        private static readonly object gate = new object();
+        private static DateTime loadedAt = DateTime.MinValue;
+        private static List<KeyValuePair<Regex, string>> fixes = new List<KeyValuePair<Regex, string>>();
+
+        internal const string Starter =
+            "# Words Capri's ears get wrong, fixed before she reads them. One per line: heard = meant\n" +
+            "# Add your friends' names the way she mishears them, like: mark = mar123ek45\n" +
+            "# Lines starting with # are notes. Save the file and she uses it straight away.\n\n" +
+            "capre = Capri\ncapry = Capri\nkapri = Capri\nkapre = Capri\ncaprie = Capri\n" +
+            "the disc = Discord\ndisc = Discord\ndiscord's = Discord's\ndis cord = Discord\n" +
+            "spot if i = Spotify\nspot a fly = Spotify\n";
+
+        internal static string Apply(string heard)
+        {
+            if (string.IsNullOrEmpty(heard) || Path == null) return heard;
+            List<KeyValuePair<Regex, string>> current;
+            lock (gate)
+            {
+                try
+                {
+                    if (!File.Exists(Path)) File.WriteAllText(Path, Starter);
+                    DateTime saved = File.GetLastWriteTimeUtc(Path);
+                    if (saved != loadedAt)
+                    {
+                        List<KeyValuePair<Regex, string>> read = new List<KeyValuePair<Regex, string>>();
+                        foreach (string line in File.ReadAllLines(Path))
+                        {
+                            int split = line.IndexOf('=');
+                            if (line.TrimStart().StartsWith("#", StringComparison.Ordinal) || split <= 0) continue;
+                            string wrong = line.Substring(0, split).Trim(), right = line.Substring(split + 1).Trim();
+                            if (wrong.Length == 0 || right.Length == 0) continue;
+                            read.Add(new KeyValuePair<Regex, string>(new Regex(@"(?<![\p{L}\p{N}])" + Regex.Escape(wrong) + @"(?![\p{L}\p{N}])", RegexOptions.IgnoreCase), right));
+                        }
+                        // Longer phrases first, so "the disc" wins over "disc".
+                        read.Sort(delegate(KeyValuePair<Regex, string> a, KeyValuePair<Regex, string> b) { return b.Key.ToString().Length.CompareTo(a.Key.ToString().Length); });
+                        fixes = read;
+                        loadedAt = saved;
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                current = fixes;
+            }
+            foreach (KeyValuePair<Regex, string> fix in current) heard = fix.Key.Replace(heard, fix.Value.Replace("$", "$$"));
+            return heard;
+        }
+    }
+
     internal sealed class LocalEars : IDisposable
     {
         internal const string Pack = "parakeet-tdt-0.6b-v2-int8";
@@ -815,7 +868,7 @@ namespace CapriDesktop
                     SherpaOnnxAcceptWaveformOffline(stream, Ears.Rate, wave, wave.Length);
                     SherpaOnnxDecodeOfflineStream(recognizer, stream);
                     result = SherpaOnnxGetOfflineStreamResult(stream);
-                    return result == IntPtr.Zero ? "" : Text(Marshal.ReadIntPtr(result));
+                    return result == IntPtr.Zero ? "" : HeardFixes.Apply(Text(Marshal.ReadIntPtr(result)));
                 }
                 finally
                 {

@@ -481,6 +481,8 @@ namespace CapriDesktop
         // Her earlier chats: messages that fall out of her short memory are kept in past-chats.md,
         // and the newest bits of it go back into her prompt, so she remembers what you talked about before.
         internal static string PastPath;
+        // What they say reaches her through speech recognition, so she guesses what they meant and asks for what's missing.
+        internal const string Misheard = "\nWhat they say often reaches you through speech recognition, so names and words can come out wrong (like Capre for Capri, or disc for Discord). Guess what they most likely meant. If a job is missing a name or a detail, ask them for it in one short line instead of saying you can't do it.";
         internal const int PastShown = 2000;
         private static readonly object pasting = new object();
 
@@ -737,7 +739,7 @@ namespace CapriDesktop
             if (model == null) throw new BrainException(Offline);
             Func<string, ToolArguments, string> act = Act;
             List<ChatMessage> messages = new List<ChatMessage>();
-            messages.Add(new ChatMessage("system", Character + Remembered() + Past() + Gap() + (act != null ? Hands.Chat : "") + Now()));
+            messages.Add(new ChatMessage("system", Character + Remembered() + Past() + Misheard + Gap() + (act != null ? Hands.Chat : "") + Now()));
             List<ChatMessage> recent;
             lock (gate)
             {
